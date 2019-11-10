@@ -148,6 +148,9 @@ void brake()
   digitalWrite(LeftMotorIn1, HIGH);
   digitalWrite(RightMotorIn2, HIGH);
   digitalWrite(LeftMotorIn2, HIGH);
+
+  analogWrite(RightMotorPWM, 0);
+  analogWrite(LeftMotorPWM, 0);
 }
 void loadBlock()
 {
