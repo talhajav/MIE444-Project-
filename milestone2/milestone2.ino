@@ -1,7 +1,3 @@
-/* NOTE:
- *    - PINS LEFT ON ARDUINO UNO: 2, 4, (5 broken), (9 broken pwm pin)
- */
-
 #include <SoftwareSerial.h>
 #include <Servo.h>
 
@@ -15,10 +11,10 @@ SoftwareSerial BTSerial(RXpin, TXpin); // RX | TX
 Servo gripper;
 
 // dc motor
-#define RightMotorIn1 12
-#define RightMotorIn2 7
-#define LeftMotorIn1 13
-#define LeftMotorIn2 8
+#define LeftMotorIn1 12
+#define LeftMotorIn2 7
+#define RightMotorIn1 13
+#define RightMotorIn2 8
 #define RightMotorPWM 3
 #define LeftMotorPWM 11
 
@@ -37,6 +33,12 @@ int forward_speed2 = 70; // left motor
 int backward_speed1 = 150; // right motor
 int backward_speed2 = 100; // left motor
 int turn_speed = 80;
+//int forward_speed1 = 200; // right motor
+//int forward_speed2 = 200; // left motor
+//int backward_speed1 = 200; // right motor
+//int backward_speed2 = 200; // left motor
+//int turn_speed = 200;
+
 int current_speed1 = 0;
 int current_speed2 = 0;
 
@@ -45,6 +47,7 @@ int startPos = 180;
 int finalPos = startPos - 70;
 
 bool moving = false;
+bool loaded = false;
 int data;
 int command = 0;
 
@@ -67,8 +70,7 @@ void loop() {
         command = data;
   } 
   Serial.println(command);
-  // action(command);  
-  moveForward(forward_speed1, forward_speed2);
+  action(command);  
   delay(50);
 }
 
@@ -105,11 +107,13 @@ void action(int command)
   else if(command == 69) 
   {
       loadBlock();
+      loaded = true;
       moving = false;
   }
   else if (command == 70)
   {
       unloadBlock();
+      loaded = false;
       moving = false;
   }
   else
@@ -118,11 +122,10 @@ void action(int command)
       moving = false;
   }
 }
-
 void moveForward(int right_motor_speed, int left_motor_speed)
 {
-  digitalWrite(RightMotorIn1, HIGH);
-  digitalWrite(LeftMotorIn1, HIGH);
+  digitalWrite(RightMotorIn1, LOW);
+  digitalWrite(LeftMotorIn1, LOW);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
@@ -131,8 +134,8 @@ void moveForward(int right_motor_speed, int left_motor_speed)
 }
 void moveBackward(int right_motor_speed, int left_motor_speed)
 {
-  digitalWrite(RightMotorIn1, LOW);
-  digitalWrite(LeftMotorIn1, LOW);
+  digitalWrite(RightMotorIn1, HIGH);
+  digitalWrite(LeftMotorIn1, HIGH);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
@@ -190,8 +193,20 @@ void brake()
 }
 void loadBlock()
 {
-  gripper.write(finalPos);
-  delay(1000);
+  if(loaded)
+  {
+    gripper.write(finalPos);
+    delay(1000);
+  }
+  else
+  {
+    // smoothly
+    for(int i=0; i<20; i++)
+    {
+      gripper.write(startPos - i*(startPos - finalPos)/20);
+      delay(50);
+    }
+  }
 }
 void unloadBlock()
 {
