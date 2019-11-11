@@ -12,7 +12,7 @@ Servo gripper;
 
 // dc motor
 #define LeftMotorIn1 12
-#define LeftMotorIn2 7
+#define LeftMotorIn2 9
 #define RightMotorIn1 13
 #define RightMotorIn2 8
 #define RightMotorPWM 3
@@ -28,23 +28,25 @@ void loadBlock();
 void unloadBlock();
 
 // motor speed
-int forward_speed1 = 100; // right motor
-int forward_speed2 = 70; // left motor
+int forward_speed1 = 150; // right motor
+int forward_speed2 = 100; // left motor
 int backward_speed1 = 150; // right motor
 int backward_speed2 = 100; // left motor
-int turn_speed = 80;
+int turn_speed1 = 110;  // right motor
+int turn_speed2 = 110; // left motor
 //int forward_speed1 = 200; // right motor
 //int forward_speed2 = 200; // left motor
 //int backward_speed1 = 200; // right motor
 //int backward_speed2 = 200; // left motor
-//int turn_speed = 200;
+//int turn_speed1 = 200;  // right motor
+//int turn_speed2 = 200; // left motor
 
 int current_speed1 = 0;
 int current_speed2 = 0;
 
 // servo position
-int startPos = 180;
-int finalPos = startPos - 70;
+int startPos = 140;
+int finalPos = startPos - 80;
 
 bool moving = false;
 bool loaded = false;
@@ -92,16 +94,16 @@ void action(int command)
   }
   else if(command == 67)
   {
-      spinLeft(turn_speed);
-      current_speed1 = turn_speed;
-      current_speed2 = turn_speed;
+      spinLeft(turn_speed1, turn_speed2);
+      current_speed1 = turn_speed1;
+      current_speed2 = turn_speed2;
       moving = true;
   }
   else if(command == 68)
   {
-      spinRight(turn_speed);
-      current_speed1 = turn_speed;
-      current_speed2 = turn_speed;
+      spinRight(turn_speed1, turn_speed2);
+      current_speed1 = turn_speed1;
+      current_speed2 = turn_speed2;
       moving = true;
   }
   else if(command == 69) 
@@ -142,25 +144,25 @@ void moveBackward(int right_motor_speed, int left_motor_speed)
   analogWrite(RightMotorPWM, right_motor_speed);
   analogWrite(LeftMotorPWM, left_motor_speed);
 }
-void spinLeft(int turn_speed)
+void spinLeft(int turn_speed1, int turn_speed2)
 {
   digitalWrite(RightMotorIn1, HIGH);
   digitalWrite(LeftMotorIn1, LOW);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
-  analogWrite(RightMotorPWM, turn_speed);
-  analogWrite(LeftMotorPWM, turn_speed);
+  analogWrite(RightMotorPWM, turn_speed1);
+  analogWrite(LeftMotorPWM, turn_speed2);
 }
-void spinRight(int turn_speed)
+void spinRight(int turn_speed1, int turn_speed2)
 {
   digitalWrite(RightMotorIn1, LOW);
   digitalWrite(LeftMotorIn1, HIGH);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
-  analogWrite(RightMotorPWM, turn_speed);
-  analogWrite(LeftMotorPWM, turn_speed);
+  analogWrite(RightMotorPWM, turn_speed1);
+  analogWrite(LeftMotorPWM, turn_speed2);
 }
 void brake()
 { 
@@ -193,20 +195,8 @@ void brake()
 }
 void loadBlock()
 {
-  if(loaded)
-  {
-    gripper.write(finalPos);
-    delay(1000);
-  }
-  else
-  {
-    // smoothly
-    for(int i=0; i<20; i++)
-    {
-      gripper.write(startPos - i*(startPos - finalPos)/20);
-      delay(50);
-    }
-  }
+  gripper.write(finalPos);
+  delay(1000);
 }
 void unloadBlock()
 {
