@@ -203,4 +203,3 @@ void unloadBlock()
   gripper.write(startPos);
   delay(1000);
 }
-
