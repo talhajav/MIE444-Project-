@@ -8,4 +8,6 @@ void loop() {
       data = Serial.read(); // Reads the data from the bluetooth serial port
   }
   Serial.println(data);
+  if(data == 65)
+    Serial.println("Recieved Command!");
 }

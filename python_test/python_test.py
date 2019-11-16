@@ -6,7 +6,7 @@ To check the port number on on Windows:
 	Control panel > Hardware and Sound > Devices and Printers 
 	> double click on the bluetooth device > choose Hardware tab
 """
-port = 'COM7' # 'COM4', 'COM7'
+port = 'COM4' # 'COM4', 'COM7'
 ser = serial.Serial(port, baudrate=9600, timeout=1)
 
 while True:
@@ -15,4 +15,4 @@ while True:
 	print(data)
 
 	"""Test if python can send data (using milestone 2 arduino code)"""
-	# ser.write('A'.encode())
+	ser.write('A'.encode())
