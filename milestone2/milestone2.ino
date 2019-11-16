@@ -12,9 +12,9 @@ Servo gripper;
 
 // dc motor
 #define LeftMotorIn1 12
-#define LeftMotorIn2 9
+#define LeftMotorIn2 9 // Brake-A
 #define RightMotorIn1 13
-#define RightMotorIn2 8
+#define RightMotorIn2 8 // Brake-B
 #define RightMotorPWM 3
 #define LeftMotorPWM 11
 
