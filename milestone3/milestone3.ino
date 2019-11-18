@@ -18,12 +18,12 @@ int finalPos = startPos - 80;
 #define LeftMotorPWM 11
 
 // motor speed
-int forward_speed1 = 150; // right motor
-int forward_speed2 = 100; // left motor
-int backward_speed1 = 150; // right motor
-int backward_speed2 = 100; // left motor
-int turn_speed1 = 110;  // right motor
-int turn_speed2 = 110; // left motor
+int forward_speed1 = 100; // right motor
+int forward_speed2 = 150; // left motor
+int backward_speed1 = 100; // right motor
+int backward_speed2 = 150; // left motor
+int turn_speed1 = 80;  // right motor
+int turn_speed2 = 100; // left motor
 //int forward_speed1 = 200; // right motor
 //int forward_speed2 = 200; // left motor
 //int backward_speed1 = 200; // right motor
@@ -49,8 +49,12 @@ NewPing sonar_west1(TRIGGER_PIN, ECHO_PIN_WEST1, MAX_DISTANCE);
 NewPing sonar_west2(TRIGGER_PIN, ECHO_PIN_WEST2, MAX_DISTANCE);
                     // 0 - north , 1 - east1, 2 - east2, 3 - south, 4 - west1, 5 - west2
 int sonar_arr[] = {0, 0, 0, 0, 0, 0};
-int sonar_delay = 10;
+int prev_sonar_arr[] = {0, 0, 0, 0, 0, 0};
+int sonar_delay = 10; // ms
 int sonar_avg = 10; // average x readings
+int north_threshold = 15; // cm
+int east_threshold = 10; // cm
+int west_threshold = 10; // cm
 
 // tracker variables
 bool moving = false;
@@ -68,6 +72,12 @@ void spinLeft();
 void spinRight();
 void loadBlock();
 void unloadBlock();
+void turnLeft(); // 90 degrees
+void turnRight(); // 90 degrees
+void testMoveForward();
+void testMoveBackward();
+void testSpinLeft();
+void testSpinRight();
 
 void setup()
 {
@@ -85,6 +95,7 @@ void setup()
 void loop()
 {
   getSensorReadings(true);
+  moveStraightForward();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -143,47 +154,63 @@ void printSensorReadings()
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////// MOTION FUNCTIONS ////////////////////////////////////////////////
+///////////////////////////////////////////// BASIC MOTION FUNCTIONS /////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void moveForward(int right_motor_speed, int left_motor_speed)
 {
-  digitalWrite(RightMotorIn1, LOW);
-  digitalWrite(LeftMotorIn1, LOW);
+  digitalWrite(RightMotorIn1, HIGH);
+  digitalWrite(LeftMotorIn1, HIGH);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
   analogWrite(RightMotorPWM, right_motor_speed);
   analogWrite(LeftMotorPWM, left_motor_speed);
+
+  moving = true;
+  current_speed1 = right_motor_speed;
+  current_speed2 = left_motor_speed;
 }
 void moveBackward(int right_motor_speed, int left_motor_speed)
 {
-  digitalWrite(RightMotorIn1, HIGH);
-  digitalWrite(LeftMotorIn1, HIGH);
+  digitalWrite(RightMotorIn1, LOW);
+  digitalWrite(LeftMotorIn1, LOW);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
   analogWrite(RightMotorPWM, right_motor_speed);
   analogWrite(LeftMotorPWM, left_motor_speed);
+
+  moving = true;
+  current_speed1 = right_motor_speed;
+  current_speed2 = left_motor_speed;
 }
-void spinLeft(int turn_speed1, int turn_speed2)
+void spinLeft(int right_motor_speed, int left_motor_speed)
 {
   digitalWrite(RightMotorIn1, HIGH);
   digitalWrite(LeftMotorIn1, LOW);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
-  analogWrite(RightMotorPWM, turn_speed1);
-  analogWrite(LeftMotorPWM, turn_speed2);
+  analogWrite(RightMotorPWM, right_motor_speed);
+  analogWrite(LeftMotorPWM, left_motor_speed);
+
+  moving = true;
+  current_speed1 = right_motor_speed;
+  current_speed2 = left_motor_speed;
 }
-void spinRight(int turn_speed1, int turn_speed2)
+void spinRight(int right_motor_speed, int left_motor_speed)
 {
   digitalWrite(RightMotorIn1, LOW);
   digitalWrite(LeftMotorIn1, HIGH);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
-  analogWrite(RightMotorPWM, turn_speed1);
-  analogWrite(LeftMotorPWM, turn_speed2);
+  analogWrite(RightMotorPWM, right_motor_speed);
+  analogWrite(LeftMotorPWM, left_motor_speed);
+
+  moving = true;
+  current_speed1 = right_motor_speed;
+  current_speed2 = left_motor_speed;
 }
 void brake()
 { 
@@ -198,7 +225,7 @@ void brake()
       digitalWrite(LeftMotorIn2, HIGH);
   
       analogWrite(RightMotorPWM, current_speed1 - i*current_speed1/4);
-      analogWrite(LeftMotorPWM, current_speed2 - i*current_speed1/4);
+      analogWrite(LeftMotorPWM, current_speed2 - i*current_speed2/4);
   
       delay(250);
     }
@@ -213,6 +240,10 @@ void brake()
     analogWrite(RightMotorPWM, 0);
     analogWrite(LeftMotorPWM, 0);
   }
+
+  moving = false;
+  current_speed1 = 0;
+  current_speed2 = 0;
 }
 void loadBlock()
 {
@@ -223,4 +254,122 @@ void unloadBlock()
 {
   gripper.write(startPos);
   delay(1000);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////// ADVANCED MOTION FUNCTIONS ////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void moveStraightForward()
+{
+  // TODO: make delays into while loop statements
+  
+  if(sonar_arr[1] < east_threshold && sonar_arr[2] >= sonar_arr[1])
+  {
+    Serial.println("Robot's front is veering to the right. Adjusting towards left");
+    spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
+    delay(400);
+    brake();
+    delay(100);
+    getSensorReadings(true);
+    if(sonar_arr[0] > north_threshold)
+    {
+      moveForward(forward_speed1, forward_speed2);
+      delay(400);
+      brake();
+      delay(100);
+      spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
+      delay(200);
+      brake();
+      delay(100);
+      getSensorReadings(true);
+    }
+  }
+
+  if(sonar_arr[4] < west_threshold && sonar_arr[5] >= sonar_arr[4])
+  {
+    Serial.println("Robot's front is veering to the left. Adjusting towards right");
+    spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
+    delay(400);
+    brake();
+    delay(100);
+    getSensorReadings(true);
+    if(sonar_arr[0] > north_threshold)
+    {
+      moveForward(forward_speed1, forward_speed2);
+      delay(400);
+      brake();
+      delay(100);
+      spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
+      delay(200);
+      brake();
+      delay(100);
+      getSensorReadings(true);
+    }
+  }
+  
+  if(sonar_arr[0] < north_threshold)
+  {
+    Serial.println("Obstacle in front of robot detected");
+  }
+  else
+  {
+    moveForward(forward_speed1, forward_speed2);
+    delay(400);
+    brake();
+    delay(100);
+  }
+}
+void turnLeft(int turn_speed1, int turn_speed2)
+{
+  int count = 0;
+  while(true)
+  {
+    memcpy(prev_sonar_arr, sonar_arr, sizeof(sonar_arr[0])*6); 
+    getSensorReadings(true);
+  
+    if(sonar_arr[0] > north_threshold && count > 5 && abs(sonar_arr[1] - sonar_arr[2]) < 2)
+      break;
+
+    spinLeft(turn_speed1, turn_speed2);
+    moving = true;
+    current_speed1 = turn_speed1;
+    current_speed2 = turn_speed2;
+    delay(200);
+    brake();
+    moving = false;
+    delay(50);
+    
+    count++;
+  }
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////// TESTING MOTION FUNCTIONS ////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void testMoveForward()
+{
+  moveForward(forward_speed1, forward_speed2);
+  delay(1000);
+  brake();
+  delay(500);
+}
+void testMoveBackward()
+{
+  moveBackward(backward_speed1, backward_speed2);
+  delay(1000);
+  brake();
+  delay(500);
+}
+void testSpinLeft()
+{
+  spinLeft(turn_speed1, turn_speed2);
+  delay(600);
+  brake();
+  delay(500);
+}
+void testSpinRight()
+{
+  spinRight(turn_speed1, turn_speed2);
+  delay(600);
+  brake();
+  delay(500);
 }

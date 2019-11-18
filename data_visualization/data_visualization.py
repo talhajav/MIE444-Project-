@@ -7,7 +7,7 @@ To check the port number on on Windows:
 	Control panel > Hardware and Sound > Devices and Printers 
 	> double click on the bluetooth device > choose Hardware tab
 """
-port = 'COM7' # 'COM4', 'COM7'
+port = 'COM4' # 'COM4', 'COM7'
 ser = serial.Serial(port, baudrate=9600, timeout=1)
 
 window_size = 800	
@@ -49,13 +49,17 @@ def visualize(readings):
 	cv2.imshow('Sensor Visualization', image)
 	cv2.waitKey(1) # display window for 1 ms
 
+# ser.write("A".encode())
 while True:
 	data = ser.readline().decode('latin-1').strip()
 	if not data:
 		continue
 
-	#  data = f"North: {x}. East1: 4. East2: 5. South: 10. West1: 6. West2: 5"
-	readings = {direction.strip(): int(measurement.strip()) for direction, measurement in [reading.split(":") for reading in data.split(".")]}
-	visualize(readings)
+	if "North:" in data:
+		#  data = f"North: 1. East1: 4. East2: 5. South: 10. West1: 6. West2: 5"
+		readings = {direction.strip(): int(measurement.strip()) for direction, measurement in [reading.split(":") for reading in data.split(".")]}
+		visualize(readings)
+	else:
+		print(data)
 
 cv2.destroyAllWindows()
