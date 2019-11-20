@@ -15,4 +15,4 @@ while True:
 	print(data)
 
 	"""Test if python can send data (using milestone 2 arduino code)"""
-	ser.write('A'.encode())
+	# ser.write('A'.encode())
