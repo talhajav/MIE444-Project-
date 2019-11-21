@@ -1,3 +1,7 @@
+/*
+ * TODO: implement equidistant readjustment function
+ */
+
 #include <NewPing.h>
 #include <Servo.h>
 
@@ -18,8 +22,8 @@ int finalPos = startPos - 105;
 #define LeftMotorPWM 11
 
 // motor speed
-int forward_speed1 = 150; // right motor
-int forward_speed2 = 150; // left motor
+int forward_speed1 = 160; // right motor
+int forward_speed2 = 160; // left motor
 int backward_speed1 = 125; // right motor
 int backward_speed2 = 125; // left motor
 int turn_speed1 = 125;  // right motor
@@ -48,10 +52,11 @@ int sonar_delay = 10; // ms
 int sonar_avg = 10; // average x readings
 
 // obstacle variables
-int north_threshold = 10; // cm
-int east_threshold = 5; // cm
-int west_threshold = 5; // cm
-int min_threshold = 3; // cm
+int north_threshold = 11; // cm
+int south_threshold = 11; // cm
+int east_threshold = 7; // cm
+int west_threshold = 7; // cm
+int min_threshold = 4; // cm
 bool forward_path_is_clear = true;
 bool north_danger = false;
 bool south_danger = false;
@@ -63,15 +68,20 @@ bool moving = false;
 bool loaded = false;
 int current_speed1 = 0;
 int current_speed2 = 0;
+bool surrounding[] = {false, false, false, false}; // 0 - north, 1 - east, 2 - south, 4 - west
+bool prev_surrounding[] = {false, false, false, false};
+bool surrounding_changed = false;
+int quadrant_type = 0; // 0 - intersection, 1 - T-junction, 2 - lane, 3 - alcove, 4 - corner
 
 // path planning variables
                       // w - forward, a - turn left, d - turn right, s - turn backward, e - end
-char directions[] = {'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e'} // stops at every environment change (wall configuration changes)
+char directions[] = {'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e'}; // stops at every surrounding change (wall configuration changes)
 
 // function declaration
 void getSensorReadings();
 void printSensorReadings();
 void detectCollision();
+void evalSurrounding();
 void action();
 void moveForward();
 void moveBackward();
@@ -82,6 +92,8 @@ void unloadBlock();
 void moveStraightForward();
 void turnLeft(); // 90 degrees
 void turnRight(); // 90 degrees
+void adjustLeft();
+void adjustRight();
 void testMoveForward();
 void testMoveBackward();
 void testSpinLeft();
@@ -153,6 +165,7 @@ void getSensorReadings(bool average_the_readings)
     delay(sonar_delay);
   }
   printSensorReadings();
+  evalSurrounding();
 }
 
 void printSensorReadings()
@@ -162,28 +175,69 @@ void printSensorReadings()
 }
 void detectCollision()
 {
+  // reset variables
+  north_danger = false;
+  south_danger = false;
+  east_danger = false;
+  west_danger = false;
+  
   // see if sensor readings are below/equal to the minimum threshold
-  if(sonar_arr[0] <= min_threshold)
+  if(sonar_arr[0] < min_threshold)
   {
     Serial.println("Collision north detected");
     forward_path_is_clear = false;
     north_danger = true;
   }
-  if(sonar_arr[1] <= min_threshold || sonar_arr[2] <= min_threshold)
+  if(sonar_arr[1] < min_threshold or sonar_arr[2] < min_threshold)
   {
     Serial.println("Collision east detected");
     east_danger = true;
   }
-  if(sonar_arr[3] <= min_threshold)
+  if(sonar_arr[3] < min_threshold + 2)
   {
     Serial.println("Collision south detected");
     south_danger = true;
   }
-  if(sonar_arr[4] <= min_threshold || sonar_arr[5] <= min_threshold)
+  if(sonar_arr[4] < min_threshold or sonar_arr[5] < min_threshold)
   {
     Serial.println("Collision west detected");
     west_danger = true;
   }
+}
+
+void evalSurrounding()
+{
+  // reset variable
+  surrounding_changed = false; 
+  
+  surrounding[0] = sonar_arr[0] < north_threshold;
+  surrounding[1] = sonar_arr[1] < 10 and sonar_arr[2] < 10;
+  surrounding[2] = sonar_arr[3] < south_threshold;
+  surrounding[3] = sonar_arr[4] < 10 and sonar_arr[5] < 10;
+
+  if(prev_surrounding != surrounding)
+  {
+    surrounding_changed = true;
+    prev_surrounding[0] = surrounding[0];
+    prev_surrounding[1] = surrounding[1];
+    prev_surrounding[2] = surrounding[2];
+    prev_surrounding[3] = surrounding[3];
+  }
+
+  // get quadrant type
+  int count = 0;
+  for(bool s: surrounding)
+    if(s){count++;}
+    
+  if(count == 2 and (surrounding[0] or surrounding[3])) // corner
+    quadrant_type = 4;
+  else
+    quadrant_type = count;
+
+  // debug statements
+  if(surrounding_changed)
+    Serial.println((String)"Surrounding changed! Now at quadrant type "+quadrant_type);
+  
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////// BASIC MOTION FUNCTIONS /////////////////////////////////////////////
@@ -293,41 +347,79 @@ void unloadBlock()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void moveStraightForward()
 {
-  if(sonar_arr[1] < east_threshold && sonar_arr[2] >= sonar_arr[1])
+//  if(sonar_arr[1] < east_threshold)
+//  {
+//    Serial.println("Robot's front is veering to the right. Adjusting towards left");
+//    spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
+//    delay(200);
+//    brake();  
+//    getSensorReadings(true);
+//  }
+//
+//  if(sonar_arr[1] > 20 && sonar_arr[4] > 7 && forward_path_is_clear)
+//  {
+//    Serial.println("Robot's front is veering to the right. Adjusting towards left");
+//    while(sonar_arr[5] <= sonar_arr[4])
+//    {
+//      spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
+//      delay(200);
+//      brake();  
+//      getSensorReadings(true);
+//    }
+//  }
+//
+//  if(sonar_arr[4] < west_threshold)
+//  {
+//    Serial.println("Robot's front is veering to the left. Adjusting towards right");
+//    spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
+//    delay(200);
+//    brake();  
+//    getSensorReadings(true);
+//  }
+//
+//  if(sonar_arr[4] > 20 && sonar_arr[1] > 7 && forward_path_is_clear)
+//  {
+//    Serial.println("Robot's front is veering to the left. Adjusting towards right");
+//    while(sonar_arr[2] <= sonar_arr[1])
+//    {
+//      spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
+//      delay(200);
+//      brake();  
+//      getSensorReadings(true);
+//    }
+//  }
+
+
+  if(sonar_arr[1] <= 10 && sonar_arr[4] <= 10)
   {
-    Serial.println("Robot's front is veering to the right. Adjusting towards left");
-    while(sonar_arr[1] < east_threshold)
+    Serial.println("Adjust robot toward equidistance");
+    if(sonar_arr[1] > sonar_arr[4] + 1) // east > west
+      adjustRight();
+    else if(sonar_arr[4] > sonar_arr[1] + 1) // west > east
+      adjustLeft();
+  }
+  else if(sonar_arr[1] <= 10)
+  {
+    Serial.println("Hugging east wall");
+    if(sonar_arr[1] > east_threshold + 1 and sonar_arr[2] <= sonar_arr[1])
+      adjustRight();
+    else if(sonar_arr[1] < east_threshold)
     {
-      spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
-      delay(400);
-      brake();
-      getSensorReadings(true);
-    }
-    if(sonar_arr[0] > north_threshold)
-    {
-      moveForward(forward_speed1, forward_speed2);
-      delay(400);
-      brake();
-      getSensorReadings(true);
+      adjustLeft();
+      while(sonar_arr[1] <= sonar_arr[2])
+        adjustLeft();
     }
   }
-
-  if(sonar_arr[4] < west_threshold && sonar_arr[5] >= sonar_arr[4])
+  else if(sonar_arr[4] <= 10)
   {
-    Serial.println("Robot's front is veering to the left. Adjusting towards right");
-    while(sonar_arr[4] < west_threshold)
+    Serial.println("Hugging west wall");
+    if(sonar_arr[4] > west_threshold + 1 and sonar_arr[5] <= sonar_arr[4])
+      adjustLeft();
+    else if(sonar_arr[4] < west_threshold)
     {
-      spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
-      delay(400);
-      brake();  
-      getSensorReadings(true);
-    }
-    if(sonar_arr[0] > north_threshold)
-    {
-      moveForward(forward_speed1, forward_speed2);
-      delay(400);
-      brake();
-      getSensorReadings(true);
+      adjustRight();
+      while(sonar_arr[4] <= sonar_arr[5])
+        adjustRight();
     }
   }
   
@@ -351,10 +443,10 @@ void turnLeft()
     getSensorReadings(true);
     
     detectCollision();
-    if(north_danger || south_danger || east_danger || west_danger)
+    if(north_danger or south_danger or east_danger or west_danger)
       break;
 
-    if(sonar_arr[0] > north_threshold && count > 5 && abs(sonar_arr[1] - sonar_arr[2]) < 2 && sonar_arr[3] < 10)
+    if(sonar_arr[0] > north_threshold and count > 3 and abs(sonar_arr[1] - sonar_arr[2]) < 2 and sonar_arr[3] < 10)
     {
       forward_path_is_clear = true;
       break;
@@ -367,6 +459,7 @@ void turnLeft()
     count++;
   }
 }
+
 void turnRight()
 {
   int count = 0;
@@ -375,10 +468,10 @@ void turnRight()
     getSensorReadings(true);
     
     detectCollision();
-    if(north_danger || south_danger || east_danger || west_danger)
+    if(north_danger or south_danger or east_danger or west_danger)
       break;
 
-    if(sonar_arr[0] > north_threshold && count > 5 && abs(sonar_arr[4] - sonar_arr[5]) < 2 && sonar_arr[3] < 10)
+    if(sonar_arr[0] > north_threshold and count > 3 and abs(sonar_arr[4] - sonar_arr[5]) < 2 and sonar_arr[3] < 10)
     {
       forward_path_is_clear = true;
       break;
@@ -390,6 +483,24 @@ void turnRight()
     
     count++;
   }
+}
+
+void adjustLeft()
+{
+  Serial.println("Robot veering to right. Adjusting towards left");
+  spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
+  delay(200);
+  brake();  
+  getSensorReadings(true);
+}
+
+void adjustRight()
+{
+  Serial.println("Robot veering to left. Adjusting towards right");
+  spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
+  delay(200);
+  brake();  
+  getSensorReadings(true);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////// TESTING MOTION FUNCTIONS ////////////////////////////////////////////
