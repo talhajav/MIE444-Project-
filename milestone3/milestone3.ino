@@ -26,8 +26,8 @@ int forward_speed1 = 160; // right motor
 int forward_speed2 = 160; // left motor
 int backward_speed1 = 125; // right motor
 int backward_speed2 = 125; // left motor
-int turn_speed1 = 125;  // right motor
-int turn_speed2 = 125; // left motor
+int turn_speed1 = 160;  // right motor
+int turn_speed2 = 160; // left motor
 
 // ultrasonic sensor
 #define TRIGGER_PIN    52 // green
@@ -52,7 +52,7 @@ int sonar_delay = 10; // ms
 int sonar_avg = 5; // average x readings
 
 // obstacle variables
-int north_threshold = 11; // cm
+int north_threshold = 16; // cm
 int south_threshold = 11; // cm
 int east_threshold = 7; // cm
 int west_threshold = 7; // cm
@@ -82,7 +82,6 @@ void getSensorReadings();
 void printSensorReadings();
 void detectCollision();
 void evalSurrounding();
-void action();
 void moveForward();
 void moveBackward();
 void spinLeft();
@@ -115,27 +114,12 @@ void setup()
 void loop()
 {
   getSensorReadings(true);
-//  moveStraightForward();
-//  if(sonar_arr[0] < north_threshold)
-//    if(sonar_arr[1] > 10 and sonar_arr[2] > 10)
-//      turnRight();
-//    else if(sonar_arr[4] > 10 and sonar_arr[5] > 10)
-//      turnLeft(); 
   moveStraightForward();
-  if(sonar_arr[0] < 20)
-  {
-    Serial.println("Incoming obstacle");
-    if(sonar_arr[4] > 10)
-    {
-      Serial.println("Opening at the left side");
-      turnLeft();
-    }
-    else if(sonar_arr[1] > 10)
-    {
-      Serial.println("Opening at the right side");
-      turnRight(); 
-    }
-  }
+  if(sonar_arr[0] < north_threshold or surrounding_changed)
+    if(sonar_arr[1] > 10 and sonar_arr[2] > 10)
+      turnRight();
+    else if(sonar_arr[4] > 10 and sonar_arr[5] > 10)
+      turnLeft(); 
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -230,20 +214,24 @@ void evalSurrounding()
   surrounding_changed = false; 
   
   surrounding[0] = sonar_arr[0] < north_threshold;
-  surrounding[1] = sonar_arr[1] < 10 and sonar_arr[2] < 10;
-  surrounding[2] = sonar_arr[3] < south_threshold;
-  surrounding[3] = sonar_arr[4] < 10 and sonar_arr[5] < 10;
+  surrounding[1] = sonar_arr[1] < 12 and sonar_arr[2] < 12;
+  surrounding[2] = sonar_arr[3] < 20;
+  surrounding[3] = sonar_arr[4] < 12 and sonar_arr[5] < 12;
 
-  for(int i=0; i<4; i++)
-    if(prev_surrounding[i] != surrounding[i]  )
-    {
-      surrounding_changed = true;
-      prev_surrounding[0] = surrounding[0];
-      prev_surrounding[1] = surrounding[1];
-      prev_surrounding[2] = surrounding[2];
-      prev_surrounding[3] = surrounding[3];
-      break;
-    }
+  if(!(prev_surrounding[2] and surrounding[2]))  // if south was previously detected, wait till robot has sufficiently moved away from south wall
+  {
+    // check if wall configuration has changed
+    for(int i=0; i<4; i++)
+      if(prev_surrounding[i] != surrounding[i])
+      {
+        surrounding_changed = true;
+        prev_surrounding[0] = surrounding[0];
+        prev_surrounding[1] = surrounding[1];
+        prev_surrounding[2] = surrounding[2];
+        prev_surrounding[3] = surrounding[3];
+        break;
+      }
+  }
 
   // get quadrant type
   int count = 0;
