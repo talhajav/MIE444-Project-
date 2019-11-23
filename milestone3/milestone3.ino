@@ -129,29 +129,18 @@ void getSensorReadings(bool average_the_readings)
 {
   if(average_the_readings)
   {
-    // average x readings
-    int d0=0, d1=0, d2=0, d3=0, d4=0, d5=0;
-    for(int i=0; i<sonar_avg; i++)
-    {
-      d0 += sonar_north.ping_cm();
-      delay(sonar_delay);
-      d1 += sonar_east1.ping_cm(); 
-      delay(sonar_delay);
-      d2 += sonar_east2.ping_cm();
-      delay(sonar_delay);
-      d3 += sonar_south.ping_cm();
-      delay(sonar_delay);
-      d4 += sonar_west1.ping_cm();
-      delay(sonar_delay);
-      d5 += sonar_west2.ping_cm();
-      delay(sonar_delay);
-    }
-    sonar_arr[0] = d0 / sonar_avg;
-    sonar_arr[1] = d1 / sonar_avg;
-    sonar_arr[2] = d2 / sonar_avg;
-    sonar_arr[3] = d3 / sonar_avg;
-    sonar_arr[4] = d4 / sonar_avg;
-    sonar_arr[5] = d5 / sonar_avg;
+    sonar_arr[0] = sonar_north.ping_median();
+    sonar_arr[0] = sonar_north.convert_cm(sonar_arr[0]);
+    sonar_arr[1] = sonar_east1.ping_median();
+    sonar_arr[1] = sonar_east1.convert_cm(sonar_arr[1]);
+    sonar_arr[2] = sonar_east2.ping_median();
+    sonar_arr[2] = sonar_east2.convert_cm(sonar_arr[2]);
+    sonar_arr[3] = sonar_south.ping_median();
+    sonar_arr[3] = sonar_south.convert_cm(sonar_arr[3]);
+    sonar_arr[4] = sonar_west1.ping_median();
+    sonar_arr[4] = sonar_west1.convert_cm(sonar_arr[4]);
+    sonar_arr[5] = sonar_west2.ping_median();
+    sonar_arr[5] = sonar_west2.convert_cm(sonar_arr[5]);
   }
   else
   {
@@ -430,13 +419,17 @@ void turnLeft()
     if(quadrant_type == 0)
     {
       Serial.println("Intersection left turn");
-      if(sonar_arr[0] > north_threshold and count > 3)
+      if(sonar_arr[0] > north_threshold and // front path is clear
+         count > 3 and // turned incrementally at least 3 times
+         (sonar_arr[1] > 30 and sonar_arr[2] > 30)) // both east sensors read over 30
         break;
     }
     else if(quadrant_type == 1)
     {
       Serial.println("T-junction left turn");
-      if(sonar_arr[0] > north_threshold and count > 3 and (abs(sonar_arr[1] - sonar_arr[2]) < 2 or sonar_arr[3] < 10))
+      if(sonar_arr[0] > north_threshold and // front path is clear
+         count > 3 and // turned incrementally at least 3 times
+         (abs(sonar_arr[1] - sonar_arr[2]) < 2 or sonar_arr[3] < 10))
         break;
     }
     else
