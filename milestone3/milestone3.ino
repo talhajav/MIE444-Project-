@@ -57,7 +57,6 @@ int south_threshold = 11; // cm
 int east_threshold = 7; // cm
 int west_threshold = 7; // cm
 int min_threshold = 4; // cm
-bool forward_path_is_clear = false;
 bool north_danger = false;
 bool south_danger = false;
 bool east_danger = false;
@@ -65,6 +64,7 @@ bool west_danger = false;
 
 // tracker variables
 bool moving = false;
+bool turning = false;
 bool loaded = false;
 int current_speed1 = 0;
 int current_speed2 = 0;
@@ -106,7 +106,7 @@ void setup()
   pinMode(RightMotorIn2, OUTPUT);
   pinMode(LeftMotorIn1, OUTPUT); // Left motor
   pinMode(LeftMotorIn2, OUTPUT);
-
+  
   gripper.attach(gripperPin); // Gripper Servo
   unloadBlock(); // start at initial position
 }
@@ -116,10 +116,10 @@ void loop()
   getSensorReadings(true);
   moveStraightForward();
   if(sonar_arr[0] < north_threshold or surrounding_changed)
-    if(sonar_arr[1] > 10 and sonar_arr[2] > 10)
+    if(sonar_arr[4] > 12)
+      turnLeft();
+    else if(sonar_arr[1] > 12)
       turnRight();
-    else if(sonar_arr[4] > 10 and sonar_arr[5] > 10)
-      turnLeft(); 
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -218,7 +218,8 @@ void evalSurrounding()
   surrounding[2] = sonar_arr[3] < 20;
   surrounding[3] = sonar_arr[4] < 12 and sonar_arr[5] < 12;
 
-  if(!(prev_surrounding[2] and surrounding[2]))  // if south was previously detected, wait till robot has sufficiently moved away from south wall
+  if(not (prev_surrounding[2] and surrounding[2]) and // if south was previously detected, wait till robot has sufficiently moved away from south wall
+     not turning)
   {
     // check if wall configuration has changed
     for(int i=0; i<4; i++)
@@ -232,20 +233,20 @@ void evalSurrounding()
         break;
       }
   }
-
-  // get quadrant type
-  int count = 0;
-  for(bool s: surrounding)
-    if(s){count++;}
-    
-  if(count == 2 and (surrounding[0] or surrounding[2])) // corner
-    quadrant_type = 4;
-  else
-    quadrant_type = count;
-
-  // debug statements
+  
   if(surrounding_changed)
+  {
+    // get quadrant type
+    int count = 0;
+    for(bool s: surrounding)
+      if(s){count++;}
+      
+    if(count == 2 and (surrounding[0] or surrounding[2])) // corner
+      quadrant_type = 4;
+    else
+      quadrant_type = count;
     Serial.println((String)"Surrounding changed! Now at quadrant type "+quadrant_type);
+  }
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////// BASIC MOTION FUNCTIONS /////////////////////////////////////////////
@@ -359,27 +360,27 @@ void moveStraightForward()
   {
     Serial.println("Adjust robot toward equidistance");
     if(sonar_arr[1] > sonar_arr[4] + 1) // east > west
-      adjustRight();
+      adjustRight(true);
     else if(sonar_arr[4] > sonar_arr[1] + 1) // west > east
-      adjustLeft();
+      adjustLeft(true);
   }
   else if(sonar_arr[1] <= 10)
   {
     Serial.println("Hugging east wall");
     if(sonar_arr[1] > east_threshold + 1 and sonar_arr[2] <= sonar_arr[1])
-      adjustRight();
+      adjustRight(true);
     else if(sonar_arr[1] < east_threshold)
       while(sonar_arr[1] <= sonar_arr[2])
-        adjustLeft();
+        adjustLeft(true);
   }
   else if(sonar_arr[4] <= 10)
   {
     Serial.println("Hugging west wall");
     if(sonar_arr[4] > west_threshold + 1 and sonar_arr[5] <= sonar_arr[4])
-      adjustLeft();
+      adjustLeft(true);
     else if(sonar_arr[4] < west_threshold)
       while(sonar_arr[4] <= sonar_arr[5])
-        adjustRight();
+        adjustRight(true);
   }
   
   if(sonar_arr[0] < north_threshold)
@@ -393,20 +394,59 @@ void moveStraightForward()
 }
 void turnLeft()
 {
+  if(sonar_arr[1] < 7) // need more clearance
+  {
+    Serial.println("Making adjustments before turning left");
+    moveBackward(backward_speed1, backward_speed2);
+    delay(200);
+    adjustLeft(true);
+    moveForward(forward_speed1, forward_speed2);
+    delay(200);
+    adjustRight(true);
+    adjustRight(true);
+    moveBackward(backward_speed1, backward_speed2);
+    delay(200);
+    adjustLeft(true);
+    moveForward(forward_speed1, forward_speed2);
+    delay(200);
+  }
+
+  Serial.println("Turning Left");
+  turning = true;
   int count = 0;
   while(true)
   {
     getSensorReadings(true);
     
     detectCollision();
-    if(south_danger or east_danger or west_danger)
-      break;
+    if(south_danger)
+      while(south_danger)
+      {
+        Serial.println("Adjusting away from south wall");
+        adjustLeft(false);
+        detectCollision();
+      }
 
-    if(sonar_arr[0] > north_threshold and 
-       count > 3 and 
-       abs(sonar_arr[1] - sonar_arr[2]) < 2 and 
-       sonar_arr[3] < 10)
-      break;
+    if(quadrant_type == 0)
+    {
+      Serial.println("Intersection left turn");
+      if(sonar_arr[0] > north_threshold and count > 3)
+        break;
+    }
+    else if(quadrant_type == 1)
+    {
+      Serial.println("T-junction left turn");
+      if(sonar_arr[0] > north_threshold and count > 3 and (abs(sonar_arr[1] - sonar_arr[2]) < 2 or sonar_arr[3] < 10))
+        break;
+    }
+    else
+    {
+      if(sonar_arr[0] > north_threshold and // front path is clear
+       count > 3 and // turned incrementally at least 3 times
+       abs(sonar_arr[1] - sonar_arr[2]) < 2 and // the east sensors are parallel to the wall
+       sonar_arr[3] < 10) // the back sensors detect a wall
+        break;
+    }
 
     spinLeft(turn_speed1, turn_speed2);
     delay(200);
@@ -414,10 +454,13 @@ void turnLeft()
     
     count++;
   }
+  Serial.println("Turning Completed");
+  turning = false;
 }
 
 void turnRight()
 {
+  turning = true;
   int count = 0;
   while(true)
   {
@@ -427,10 +470,10 @@ void turnRight()
     if(south_danger or east_danger or west_danger)
       break;
 
-    if(sonar_arr[0] > north_threshold and 
-       count > 3 and 
-       abs(sonar_arr[4] - sonar_arr[5]) < 2 and 
-       sonar_arr[3] < 10)
+    if(sonar_arr[0] > north_threshold and // front path is clear
+       count > 3 and // turned incrementally at least 3 times
+       abs(sonar_arr[4] - sonar_arr[5]) < 2 and // the west sensors are parallel to the wall
+       sonar_arr[3] < 10) // the back sensors detect a wall
       break;
 
     spinRight(turn_speed1, turn_speed2);
@@ -439,19 +482,26 @@ void turnRight()
     
     count++;
   }
+  turning = false;
 }
 
-void adjustLeft()
+void adjustLeft(bool backward)
 {
-  spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
+  if(backward)
+    spinLeft(turn_speed1, 0); // <-- why are they switched? Need to figure out ASAP.
+  else
+    spinLeft(0, turn_speed2);
   delay(200);
   brake();  
   getSensorReadings(true);
 }
 
-void adjustRight()
+void adjustRight(bool backward)
 {
-  spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
+  if(backward)
+    spinRight(0, turn_speed2); // <-- why are they switched? Need to figure out ASAP.
+  else
+    spinRight(turn_speed1, 0);
   delay(200);
   brake();  
   getSensorReadings(true);
