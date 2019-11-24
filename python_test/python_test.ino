@@ -73,5 +73,8 @@ void loop() {
   if(Serial2.available() > 0) // Checks whether data is comming from the bluetooth serial port
       data = Serial2.readStringUntil('\n'); // Reads the data from the bluetooth serial port
   Serial2.println(data);
+  Serial2.println((String)data[0] + data[1] + data[2]);
+  if(data == "TESTING TESTING TESTING")
+    Serial2.println("Recieved Message!");
   delay(1000);
 }

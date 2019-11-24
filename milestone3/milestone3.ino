@@ -74,6 +74,9 @@ bool surrounding_changed = false;
 int quadrant_type = 0; // 0 - intersection, 1 - T-junction, 2 - lane, 3 - alcove, 4 - corner
 int prev_quadrant_type = quadrant_type;
 
+// localization variables
+bool localized = false;
+
 // path planning variables
                       // w - forward, a - turn left, d - turn right, s - turn backward, e - end
 char directions[] = {'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e'}; // stops at every surrounding change (wall configuration changes)
@@ -94,6 +97,7 @@ void turnLeft(); // 90 degrees
 void turnRight(); // 90 degrees
 void adjustLeft();
 void adjustRight();
+void localize();
 void testMoveForward();
 void testMoveBackward();
 void testSpinLeft();
@@ -101,7 +105,7 @@ void testSpinRight();
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial2.begin(9600);
 
   pinMode(RightMotorIn1, OUTPUT); // Right Motor
   pinMode(RightMotorIn2, OUTPUT);
@@ -110,6 +114,8 @@ void setup()
   
   gripper.attach(gripperPin); // Gripper Servo
   unloadBlock(); // start at initial position
+
+//  localize();
 }
 
 void loop()
@@ -164,7 +170,7 @@ void getSensorReadings(bool average_the_readings)
 
 void printSensorReadings()
 {
-  Serial.println((String)"North: "+sonar_arr[0]+". East1: "+sonar_arr[1]+". East2: "+sonar_arr[2]+
+  Serial2.println((String)"North: "+sonar_arr[0]+". East1: "+sonar_arr[1]+". East2: "+sonar_arr[2]+
                          ". South: "+sonar_arr[3]+". West1: "+sonar_arr[4]+". West2: "+sonar_arr[5]);
 }
 void detectCollision()
@@ -178,22 +184,22 @@ void detectCollision()
   // see if sensor readings are below/equal to the minimum threshold
   if(sonar_arr[0] < min_threshold)
   {
-    Serial.println("Collision north detected");
+    Serial2.println("Collision north detected");
     north_danger = true;
   }
   if(sonar_arr[1] < min_threshold or sonar_arr[2] < min_threshold)
   {
-    Serial.println("Collision east detected");
+    Serial2.println("Collision east detected");
     east_danger = true;
   }
   if(sonar_arr[3] < min_threshold + 2)
   {
-    Serial.println((String)"Collision south detected: "+sonar_arr[3]+"cm");
+    Serial2.println((String)"Collision south detected: "+sonar_arr[3]+"cm");
     south_danger = true;
   }
   if(sonar_arr[4] < min_threshold or sonar_arr[5] < min_threshold)
   {
-    Serial.println("Collision west detected");
+    Serial2.println("Collision west detected");
     west_danger = true;
   }
 }
@@ -238,7 +244,7 @@ void evalSurrounding()
       quadrant_type = 4;
     else
       quadrant_type = count;
-    Serial.println((String)"Surrounding changed! Before at quadrant type "+prev_quadrant_type+". Now at quadrant type "+quadrant_type);
+    Serial2.println((String)"Surrounding changed! Before at quadrant type "+prev_quadrant_type+". Now at quadrant type "+quadrant_type);
   }
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -349,9 +355,35 @@ void unloadBlock()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void moveStraightForward()
 {
+  // have the robot adjust parallel to the walls
+  if((sonar_arr[1] > 30 or sonar_arr[4] > 30) and quadrant_type == 2)
+  {
+    moveBackward(backward_speed1, backward_speed2);
+    delay(200);
+    brake();
+    while(true)
+    {
+      if(sonar_arr[2] > sonar_arr[1] and sonar_arr[5] < sonar_arr[4])
+      {
+        spinLeft(turn_speed1, turn_speed2);
+        delay(100);
+        brake();
+      }
+      else if(sonar_arr[2] < sonar_arr[1] and sonar_arr[5] > sonar_arr[4])
+      {
+        spinRight(turn_speed1, turn_speed2);
+        delay(100);
+        brake();
+      }
+      else
+        break;
+    }
+    quadrant_type = 5; // a hacky way to indicate the robot has already been adjusted
+  }
+  
   if(sonar_arr[1] <= 10 && sonar_arr[4] <= 10)
   {
-    Serial.println("Adjust robot toward equidistance");
+    Serial2.println("Adjust robot toward equidistance");
     if(sonar_arr[1] > sonar_arr[4] + 1) // east > west
       adjustRight(true);
     else if(sonar_arr[4] > sonar_arr[1] + 1) // west > east
@@ -359,7 +391,7 @@ void moveStraightForward()
   }
   else if(sonar_arr[1] <= 10)
   {
-    Serial.println("Hugging east wall");
+    Serial2.println("Hugging east wall");
     if(sonar_arr[1] > east_threshold + 1 and sonar_arr[2] <= sonar_arr[1])
       adjustRight(true);
     else if(sonar_arr[1] < east_threshold)
@@ -368,7 +400,7 @@ void moveStraightForward()
   }
   else if(sonar_arr[4] <= 10)
   {
-    Serial.println("Hugging west wall");
+    Serial2.println("Hugging west wall");
     if(sonar_arr[4] > west_threshold + 1 and sonar_arr[5] <= sonar_arr[4])
       adjustLeft(true);
     else if(sonar_arr[4] < west_threshold)
@@ -377,7 +409,7 @@ void moveStraightForward()
   }
   
   if(sonar_arr[0] < north_threshold)
-    Serial.println("Obstacle in front of robot detected");
+    Serial2.println("Obstacle in front of robot detected");
   else
   {
     moveForward(forward_speed1, forward_speed2);
@@ -387,7 +419,7 @@ void moveStraightForward()
 }
 void turnLeft()
 {
-  Serial.println("Turning Left");
+  Serial2.println("Turning Left");
   turning = true;
   int count = 0;
   while(true)
@@ -396,7 +428,7 @@ void turnLeft()
 
     if(quadrant_type == 0)
     {
-      Serial.println("Intersection left turn");
+      Serial2.println("Intersection left turn");
       if(sonar_arr[0] > north_threshold and // front path is clear
          count >= 2 and // turned incrementally at least 2 times
          (sonar_arr[1] > 30 and sonar_arr[2] > 30)) // both east sensors read over 30
@@ -404,7 +436,7 @@ void turnLeft()
     }
     else if(quadrant_type == 1)
     {
-      Serial.println("T-junction left turn");
+      Serial2.println("T-junction left turn");
       if(sonar_arr[0] > north_threshold and // front path is clear
          count >= 2 and // turned incrementally at least 3 times
          (abs(sonar_arr[1] - sonar_arr[2]) < 2 or sonar_arr[3] < 10))
@@ -412,7 +444,7 @@ void turnLeft()
     }
     else
     {
-      Serial.println("Corner left turn");
+      Serial2.println("Corner left turn");
       if(sonar_arr[0] > north_threshold and // front path is clear
        count >= 2 and // turned incrementally at least 2 times
        abs(sonar_arr[1] - sonar_arr[2]) < 2 and // the east sensors are parallel to the wall
@@ -430,7 +462,7 @@ void turnLeft()
         msg += (String) ", "+sonar_arr[1]+"< 12 and "+sonar_arr[2]+" < 12";
       if(not (sonar_arr[3] < 10))
         msg += (String) ", "+sonar_arr[3]+"< 10";
-      Serial.println((String) "Turn not completed yet due to: "+msg+".");
+      Serial2.println((String) "Turn not completed yet due to: "+msg+".");
     }
 
     spinLeft(turn_speed1, turn_speed2);
@@ -439,13 +471,13 @@ void turnLeft()
     
     count++;
   }
-  Serial.println("Turning Completed");
+  Serial2.println("Turning Completed");
   turning = false;
 }
 
 void turnRight()
 {
-  Serial.println("Turning Right");
+  Serial2.println("Turning Right");
   turning = true;
   int count = 0;
   while(true)
@@ -454,7 +486,7 @@ void turnRight()
 
     if(quadrant_type == 0)
     {
-      Serial.println("Intersection right turn");
+      Serial2.println("Intersection right turn");
       if(sonar_arr[0] > north_threshold and // front path is clear
          count >= 2 and // turned incrementally at least 2 times
          (sonar_arr[4] > 30 and sonar_arr[5] > 30)) // both west sensors read over 30
@@ -462,7 +494,7 @@ void turnRight()
     }
     else if(quadrant_type == 1)
     {
-      Serial.println("T-junction right turn");
+      Serial2.println("T-junction right turn");
       if(sonar_arr[0] > north_threshold and // front path is clear
          count >= 2 and // turned incrementally at least 3 times
          (abs(sonar_arr[4] - sonar_arr[5]) < 2 or sonar_arr[3] < 10))
@@ -506,6 +538,52 @@ void adjustRight(bool backward)
   delay(200);
   brake();  
   getSensorReadings(true);
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////// HIGH-LEVEL FUNCTIONS //////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void localize()
+{
+  // position robot to be parallel to walls
+  while(true)
+  {
+    getSensorReadings(true);
+    spinRight(turn_speed1, turn_speed2);
+    delay(100);
+    brake();
+    if(abs(sonar_arr[1] - sonar_arr[2]) < 2 and (sonar_arr[1] < 12 and sonar_arr[2] < 12) or 
+       abs(sonar_arr[4] - sonar_arr[5]) < 2 and (sonar_arr[4] < 12 and sonar_arr[5] < 12))
+      break;
+  }
+  getSensorReadings(true);
+  while(not localized)
+  {
+    if(Serial2.available() > 0)
+    {
+      String result = Serial2.readStringUntil('\n');
+      if(result == "w")
+        while(not surrounding_changed)
+        {
+          getSensorReadings(true);
+          moveStraightForward();
+        }
+      else if(result == "LOCALIZED")
+        localized = true;
+    }
+  }
+
+  // grab the path
+  String paths = "";
+  while(true)
+  {
+    if(Serial2.available() > 0)
+      paths = Serial2.readStringUntil('\n');
+    if(paths != "")
+      break;
+  }
+  for(int i=0; i<paths.length(); i++)
+    directions[i] = paths[i];
+    
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////// TESTING MOTION FUNCTIONS ////////////////////////////////////////////
