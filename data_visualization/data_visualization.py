@@ -39,13 +39,29 @@ def visualize(readings):
 								(org[1]+100, rover_pos[1][1]+readings["South"]*pixel_cm_scale), 
 								line_color, thickness) 
 	if readings["East1"] < visual_limit and readings["East2"] < visual_limit:
-		image = cv2.line(image, (rover_pos[1][0]+readings["East1"]*pixel_cm_scale, rover_pos[0][1]-50), 
-								(rover_pos[1][0]+readings["East2"]*pixel_cm_scale, rover_pos[1][1]+50), 
-								line_color, thickness) 
+		if abs(readings["East1"] - readings["East2"]) > 5:
+			image = cv2.line(image, (rover_pos[1][0]+readings["East1"]*pixel_cm_scale, rover_pos[0][1]-50), 
+									(rover_pos[1][0]+readings["East1"]*pixel_cm_scale, org[1]), 
+									line_color, thickness) 
+			image = cv2.line(image, (rover_pos[1][0]+readings["East2"]*pixel_cm_scale, org[1]), 
+									(rover_pos[1][0]+readings["East2"]*pixel_cm_scale, rover_pos[1][1]+50), 
+									line_color, thickness) 
+		else:
+			image = cv2.line(image, (rover_pos[1][0]+readings["East1"]*pixel_cm_scale, rover_pos[0][1]-50), 
+									(rover_pos[1][0]+readings["East2"]*pixel_cm_scale, rover_pos[1][1]+50), 
+									line_color, thickness) 
 	if readings["West1"] < visual_limit and readings["West2"] < visual_limit:
-		image = cv2.line(image, (rover_pos[0][0]-readings["West1"]*pixel_cm_scale, rover_pos[0][1]-50), 
-								(rover_pos[0][0]-readings["West2"]*pixel_cm_scale, rover_pos[1][1]+50), 
-								line_color, thickness) 
+		if abs(readings["West1"] - readings["West2"]) > 5:
+			image = cv2.line(image, (rover_pos[0][0]-readings["West1"]*pixel_cm_scale, rover_pos[0][1]-50), 
+									(rover_pos[0][0]-readings["West1"]*pixel_cm_scale, org[1]), 
+									line_color, thickness) 
+			image = cv2.line(image, (rover_pos[0][0]-readings["West2"]*pixel_cm_scale, org[1]), 
+									(rover_pos[0][0]-readings["West2"]*pixel_cm_scale, rover_pos[1][1]+50), 
+									line_color, thickness) 
+		else:
+			image = cv2.line(image, (rover_pos[0][0]-readings["West1"]*pixel_cm_scale, rover_pos[0][1]-50), 
+									(rover_pos[0][0]-readings["West2"]*pixel_cm_scale, rover_pos[1][1]+50), 
+									line_color, thickness) 
 	cv2.imshow('Sensor Visualization', image)
 	cv2.waitKey(1) # display window for 1 ms
 
