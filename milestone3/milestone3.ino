@@ -52,7 +52,7 @@ int sonar_delay = 10; // ms
 int sonar_avg = 5; // average x readings
 
 // obstacle variables
-int north_threshold = 16; // cm
+int north_threshold = 14; // cm
 int south_threshold = 11; // cm
 int east_threshold = 7; // cm
 int west_threshold = 7; // cm
@@ -115,19 +115,12 @@ void setup()
 void loop()
 {
   getSensorReadings(true);
-//  if(sonar_arr[0] != 0)
-//  {
-//    moveStraightForward();
-//    if(sonar_arr[0] < north_threshold) // or surrounding_changed)
-//    { 
-//      if(sonar_arr[4] > sonar_arr[1])
-//        turnLeft();
-//      else if(sonar_arr[1] > sonar_arr[4])
-//        turnRight();
-//      else
-//        Serial.println("Nowhere to turn");
-//    }
-//  }
+  moveStraightForward();
+  if(sonar_arr[0] < north_threshold or surrounding_changed)
+    if(sonar_arr[4] > 12)
+      turnLeft();
+    else if(sonar_arr[1] > 12)
+      turnRight();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -210,9 +203,9 @@ void evalSurrounding()
   // reset variable
   surrounding_changed = false; 
   
-  surrounding[0] = sonar_arr[0] <= 18;
+  surrounding[0] = sonar_arr[0] <= 16;
   surrounding[1] = sonar_arr[1] < 15 and sonar_arr[2] < 15;
-  surrounding[2] = sonar_arr[3] <= 18;
+  surrounding[2] = sonar_arr[3] <= 16;
   surrounding[3] = sonar_arr[4] < 15 and sonar_arr[5] < 15;
 
   if(not (prev_surrounding[2] and sonar_arr[3] < 30) and // if south was previously detected, wait till robot has sufficiently moved away from south wall
@@ -367,7 +360,7 @@ void moveStraightForward()
   else if(sonar_arr[1] <= 10)
   {
     Serial.println("Hugging east wall");
-    if(sonar_arr[1] > east_threshold and sonar_arr[2] <= sonar_arr[1])
+    if(sonar_arr[1] > east_threshold + 1 and sonar_arr[2] <= sonar_arr[1])
       adjustRight(true);
     else if(sonar_arr[1] < east_threshold)
       while(sonar_arr[1] <= sonar_arr[2])
@@ -376,7 +369,7 @@ void moveStraightForward()
   else if(sonar_arr[4] <= 10)
   {
     Serial.println("Hugging west wall");
-    if(sonar_arr[4] > west_threshold and sonar_arr[5] <= sonar_arr[4])
+    if(sonar_arr[4] > west_threshold + 1 and sonar_arr[5] <= sonar_arr[4])
       adjustLeft(true);
     else if(sonar_arr[4] < west_threshold)
       while(sonar_arr[4] <= sonar_arr[5])
@@ -394,48 +387,12 @@ void moveStraightForward()
 }
 void turnLeft()
 {
-  if(sonar_arr[1] < 7) // need more clearance
-  {
-    Serial.println("Making adjustments before turning left");
-    if(sonar_arr[1] < 5)
-    {
-      moveBackward(backward_speed1, backward_speed2);
-      delay(200);
-      adjustLeft(true);
-      moveForward(forward_speed1, forward_speed2);
-      delay(200);
-      adjustRight(true);
-    }
-    adjustRight(true);
-    adjustRight(true);
-    moveBackward(backward_speed1, backward_speed2);
-    delay(200);
-    adjustLeft(true);
-    moveForward(forward_speed1, forward_speed2);
-    delay(200);
-    brake();
-  }
-
   Serial.println("Turning Left");
   turning = true;
   int count = 0;
   while(true)
   {
     getSensorReadings(true);
-    
-    detectCollision();
-    if(south_danger)
-    {
-      Serial.println("Adjusting away from south wall");
-      adjustLeft(false);
-      adjustLeft(false);
-    }
-    else if(east_danger)
-    {
-      Serial.println("Adjusting away from east wall");
-      adjustLeft(true);
-      adjustLeft(true);
-    }
 
     if(quadrant_type == 0)
     {
@@ -459,8 +416,21 @@ void turnLeft()
       if(sonar_arr[0] > north_threshold and // front path is clear
        count >= 2 and // turned incrementally at least 2 times
        abs(sonar_arr[1] - sonar_arr[2]) < 2 and // the east sensors are parallel to the wall
+       sonar_arr[1] < 12 and sonar_arr[2] < 12 and // the east sensors are close to the wall
        sonar_arr[3] < 10) // the back sensors detect a wall
         break;
+
+      // debug purpose statement
+      String msg = "";
+      if(not (sonar_arr[0] > north_threshold))
+        msg += (String) sonar_arr[0]+" < "+north_threshold;
+      if(not (abs(sonar_arr[1] - sonar_arr[2]) < 2))
+        msg += (String) ", "+abs(sonar_arr[1] - sonar_arr[2])+"< 2";
+      if(not (sonar_arr[1] < 12 and sonar_arr[2] < 12))
+        msg += (String) ", "+sonar_arr[1]+"< 12 and "+sonar_arr[2]+" < 12";
+      if(not (sonar_arr[3] < 10))
+        msg += (String) ", "+sonar_arr[3]+"< 10";
+      Serial.println((String) "Turn not completed yet due to: "+msg+".");
     }
 
     spinLeft(turn_speed1, turn_speed2);
@@ -481,20 +451,6 @@ void turnRight()
   while(true)
   {
     getSensorReadings(true);
-    
-    detectCollision();
-    if(south_danger)
-    {
-      Serial.println("Adjusting away from south wall");
-      adjustRight(false);
-      adjustRight(false);
-    }
-    if(west_danger)
-    {
-      Serial.println("Adjusting away from west wall");
-      adjustRight(true);
-      adjustRight(true);
-    }
 
     if(quadrant_type == 0)
     {
