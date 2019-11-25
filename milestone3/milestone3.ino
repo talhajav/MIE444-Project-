@@ -586,6 +586,9 @@ void localize()
        abs(sonar_arr[4] - sonar_arr[5]) < 2 and (sonar_arr[4] < 12 and sonar_arr[5] < 12))
       break;
   }
+  Serial2.println("Robot is now parallel to wall");
+  Serial2.println("Localization begin"); // this indicate to python to start localization computation
+
   getSensorReadings(true);
   while(not localized)
   {
@@ -593,11 +596,14 @@ void localize()
     {
       String result = Serial2.readStringUntil('\n');
       if(result == "w")
+      {
         while(not surrounding_changed)
         {
           getSensorReadings(true);
           moveStraightForward();
         }
+        Serial2.println("Stopped Moving");
+      }
       else if(result == "LOCALIZED")
         localized = true;
     }
