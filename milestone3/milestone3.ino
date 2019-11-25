@@ -134,7 +134,15 @@ void setup()
 
 void loop()
 {
-  localize();
+  if(Serial2.available() > 0)
+  {
+    char data = Serial2.read();
+    if(data == 'A')
+    {
+      Serial2.println("Command Recieved");
+      localize();
+    }
+  }
 //  getSensorReadings(true);
 //  moveStraightForward();
 //  if(sonar_arr[0] < north_threshold or surrounding_changed)
@@ -233,8 +241,8 @@ void evalSurrounding()
   surrounding[3] = sonar_arr[4] < 15 and sonar_arr[5] < 15;
 
   if(not (prev_surrounding[2] and sonar_arr[3] < 30) and // if south was previously detected, wait till robot has sufficiently moved away from south wall
-     not (prev_surrounding[1] and sonar_arr[1] > 30 and sonar_arr[2] > 30) and // if east was previousy detected, wait till both east sensors have cleared the wall
-     not (prev_surrounding[3] and sonar_arr[3] > 30 and sonar_arr[3] > 30) and // if west was previousy detected, wait till both west sensors have cleared the wall
+     not (prev_surrounding[1] and sonar_arr[1] < 30 and sonar_arr[2] < 30) and // if east was previousy detected, wait till both east sensors have cleared the wall
+     not (prev_surrounding[3] and sonar_arr[3] < 30 and sonar_arr[3] < 30) and // if west was previousy detected, wait till both west sensors have cleared the wall
      not turning)
   {
     // check if wall configuration has changed
@@ -597,10 +605,11 @@ void localize()
   getSensorReadings(true);
   while(not localized)
   {
+    Serial2.println("waiting for localization result");
     if(Serial2.available() > 0)
     {
       String result = Serial2.readStringUntil('\n');
-      if(result == "w")
+      if(result == "MOVEFORWARD")
       {
         while(not surrounding_changed)
         {
@@ -619,7 +628,10 @@ void localize()
   while(true)
   {
     if(Serial2.available() > 0)
+    {
       paths = Serial2.readStringUntil('\n');
+      Serial2.println("Recieved the paths!");
+    }
     if(paths != "")
       break;
   }
