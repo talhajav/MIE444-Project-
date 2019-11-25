@@ -16,7 +16,7 @@ class Visualization:
 		self.pixel_cm_scale = 10
 		self.visual_limit = 30 # cm
 
-	def visualize(readings):
+	def visualize(self, readings):
 		image = np.zeros((self.window_size, self.window_size, 3), dtype="uint8")
 		image = cv2.putText(image, str(readings["North"])+"cm", (self.org[0] - 2, self.org[1] - 300), self.font, self.font_scale, self.text_color, self.thickness, cv2.LINE_AA) 
 		image = cv2.putText(image, str(readings["East1"])+"cm", (self.org[0] + 300, self.org[1] - 160), self.font, self.font_scale, self.text_color, self.thickness, cv2.LINE_AA) 
@@ -37,14 +37,14 @@ class Visualization:
 			if abs(readings["East1"] - readings["East2"]) > 5:
 				image = cv2.line(image, (self.rover_pos[1][0]+readings["East1"]*self.pixel_cm_scale, self.rover_pos[0][1]-50), 
 										(self.rover_pos[1][0]+readings["East1"]*self.pixel_cm_scale, self.org[1]), 
-										line_color, thickness) 
+										self.line_color, self.thickness) 
 				image = cv2.line(image, (self.rover_pos[1][0]+readings["East2"]*self.pixel_cm_scale, self.org[1]), 
 										(self.rover_pos[1][0]+readings["East2"]*self.pixel_cm_scale, self.rover_pos[1][1]+50), 
 										self.line_color, self.thickness) 
 			else:
 				image = cv2.line(image, (self.rover_pos[1][0]+readings["East1"]*self.pixel_cm_scale, self.rover_pos[0][1]-50), 
 										(self.rover_pos[1][0]+readings["East2"]*self.pixel_cm_scale, self.rover_pos[1][1]+50), 
-										line_color, thickness) 
+										self.line_color, self.thickness) 
 		if readings["West1"] < self.visual_limit and readings["West2"] < self.visual_limit:
 			if abs(readings["West1"] - readings["West2"]) > 5:
 				image = cv2.line(image, (self.rover_pos[0][0]-readings["West1"]*self.pixel_cm_scale, self.rover_pos[0][1]-50), 

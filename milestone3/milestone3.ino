@@ -52,11 +52,11 @@ int sonar_delay = 10; // ms
 int sonar_avg = 5; // average x readings
 
 // IR sensors
-#define IR_1 32 // Front right
-#define IR_2 33 // Front left
-#define IR_3 30 // Back right
-#define IR_4 31 // Back left
-int IR_Sensors[4] = {IR_1, IR_2, IR_3, IR_4};
+#define IR_1 31// Front right
+#define IR_2 32 // Front left
+#define IR_3 33 // Back right
+#define IR_4 30 // Back left
+int IR_Sensors[4] = {IR_2, IR_1, IR_3, IR_4};
 int IR_Readings[4] = {0, 0, 0, 0};
 
 // obstacle variables
@@ -134,7 +134,8 @@ void setup()
 
 void loop()
 {
-  getSensorReadings(true);
+  localize();
+//  getSensorReadings(true);
 //  moveStraightForward();
 //  if(sonar_arr[0] < north_threshold or surrounding_changed)
 //    if(sonar_arr[4] > 12)
@@ -186,6 +187,8 @@ void getSensorReadings(bool average_the_readings)
 void printSensorReadings()
 {
   Serial2.println((String)"North: "+sonar_arr[0]+". East1: "+sonar_arr[1]+". East2: "+sonar_arr[2]+
+                         ". South: "+sonar_arr[3]+". West1: "+sonar_arr[4]+". West2: "+sonar_arr[5]);
+  Serial.println((String)"North: "+sonar_arr[0]+". East1: "+sonar_arr[1]+". East2: "+sonar_arr[2]+
                          ". South: "+sonar_arr[3]+". West1: "+sonar_arr[4]+". West2: "+sonar_arr[5]);
 }
 void detectCollision()
@@ -585,9 +588,11 @@ void localize()
     if(abs(sonar_arr[1] - sonar_arr[2]) < 2 and (sonar_arr[1] < 12 and sonar_arr[2] < 12) or 
        abs(sonar_arr[4] - sonar_arr[5]) < 2 and (sonar_arr[4] < 12 and sonar_arr[5] < 12))
       break;
-  }
+  } 
   Serial2.println("Robot is now parallel to wall");
   Serial2.println("Localization begin"); // this indicate to python to start localization computation
+  Serial.println("Robot is now parallel to wall");
+  Serial.println("Localization begin");
 
   getSensorReadings(true);
   while(not localized)
@@ -602,7 +607,7 @@ void localize()
           getSensorReadings(true);
           moveStraightForward();
         }
-        Serial2.println("Stopped Moving");
+        Serial2.println("Stopped Moving");  
       }
       else if(result == "LOCALIZED")
         localized = true;

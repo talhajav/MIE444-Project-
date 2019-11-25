@@ -23,10 +23,10 @@ class PathPlanning(Maze):
 	def __init__(self, coord, left_lz=True):
 		super().__init__()
 		self.starting_corrdinate = coord
-		self.left_loading_zone = (1, 0)
-		self.right_loading_zone = (3, 2)
+		self.left_loading_zone = (1, 7)
+		self.right_loading_zone = (3, 5)
 		# where we want robot to go when it finishes loading the block
-		self.end_loading_zone = if left_lz self.left_loading_zone else self.right_loading_zone
+		self.end_loading_zone = self.left_loading_zone if left_lz else self.right_loading_zone
 		self.find_path()
 
 	def find_path(self):
@@ -36,7 +36,7 @@ class PathPlanning(Maze):
 
 		self.quadrant_list = []
 		for idx in range(0, len(self.path_to_loading_zone)):
-		    self.quadrantList.append([self.path_to_loading_zone[idx], 
+		    self.quadrant_list.append([self.path_to_loading_zone[idx], 
 		    						  self.maze_quadrant[self.path_to_loading_zone[idx][0]][self.path_to_loading_zone[idx][1]]])
 
 	def astar(self, maze, start, end):
@@ -124,7 +124,7 @@ class PathPlanning(Maze):
 	def plotMaze(self, maze):
 	    plt.figure(figsize=(8,4))
 	    cmap = colors.ListedColormap(['Blue','red','purple','green','y'])
-	    plt.pcolor(maze[::],cmap=cmap,edgecolors='k', linewidths=3)
+	    plt.pcolor(maze[::-1],cmap=cmap,edgecolors='k', linewidths=3)
 	    plt.show()
 
 
@@ -136,25 +136,25 @@ class PathPlanning(Maze):
 
 	def robotPathtoLZ(self, start,end):
 	    #calling a* function that will return a list of coordinates on map for robot path
-	    path = astar(mazeOriginal, start, end)
+	    path = self.astar(self.original_maze, start, end)
 	    path=list(path)
 	    #adjusting maze list with robot path for visualization later
 	    for point in path:
-	        maze3[point[0]][point[1]]=2
+	        self.maze3[point[0]][point[1]]=2
 		#plotting maze with path visualzed from start to end point
-	    plotMaze(maze3)
+	    self.plotMaze(self.maze3)
 	    
-	    return convertToList(path)
+	    return self.convertToList(path)
 
 	#function to path plan to dropoff point
 	def robotPathtoB(self, start,end):
 	    #calling a* function that will return a list of coordinates on map for robot path
-	    path = astar(mazeOriginal, start, end)
+	    path = self.astar(self.original_maze, start, end)
 	    path=list(path)
 	    #adjusting maze list with robot path for visualization later
 	    for point in path:
-	        maze3[point[0]][point[1]]=2
+	        self.maze3[point[0]][point[1]]=2
 		#plotting maze with path visualzed from start to end point
-	    plotMaze(maze3)
+	    self.plotMaze(self.maze3)
 
-	    return convertToList(path)
+	    return self.convertToList(path)
