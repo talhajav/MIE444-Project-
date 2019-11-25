@@ -21,10 +21,10 @@ class Maze:
 								          [[1,0,0,1],[1,0,0,0],[1,0,1,0],[1,1,0,0],1,[1,1,0,1],1,[1,1,0,1]]])
 		
 		# maze with loading zone blocked off as potential region for robot path
-		self.maze_lz = np.array([ [0,0,0,0,0,0,1,1],
-							      [0,1,1,1,1,0,1,0],
-							      [1,1,1,0,0,0,0,0],
-							      [1,1,0,0,1,1,1,1]])
+		self.maze_lz = np.array([[0,1,0,0,0,0,0,0],
+					             [0,1,0,1,1,0,1,0],
+					             [0,0,0,0,0,1,1,1],
+					             [0,1,0,1,0,0,1,1]])
 		# maze with loading zones as 2), dropoff locations as 3), 2 blocks closest to loading zone entrance as 4)
 		self.maze2 = np.array([	[0,0,0,0,0,0,1,3],
 							    [4,1,3,1,1,0,1,0],

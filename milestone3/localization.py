@@ -26,8 +26,8 @@ class Localization(Maze):
         self.new_wall_sensor_reading2 = sensor_reading
 
     def print_localization(self):
-        self.visual_map[self.localized_coordinate] = 'H'
-        print(self.visual_map)
+        self.visual_maze[self.localized_coordinate] = 'H'
+        print(self.visual_maze)
 
     def determine_direction(self, coordinate_original):
         direction_value = coordinate_original[0][1]
@@ -233,26 +233,25 @@ class Localization(Maze):
             return "Move Forward"
 
         print(self.localized_location, self.drive_mode)
-        startPoint = self.localized_location[0]
+        startPoint = self.localized_location[0][0] if type(self.localized_location) == tuple else self.localized_location[0]
         self.localized_coordinate = startPoint
         self.localized = True
         print(startPoint)
 
+        self.print_localization()
         return "Completed"
 
     def localize2(self):
         assert(self.new_wall_sensor_reading is not None)
-        print("self.new_wall_sensor_reading")
         print(self.new_wall_sensor_reading)
-        print("self.localized_location[1]")
-        print(self.localized_location[1])
         self.localized_location = self.additional_movement_localization(self.localized_location[1], 
-                                                                   self.new_wall_sensor_reading, 
-                                                                   self.us_wall_config, 
-                                                                   self.ir_wall_config)
+                                                                       self.new_wall_sensor_reading, 
+                                                                       self.us_wall_config, 
+                                                                       self.ir_wall_config)
         print(self.localized_location)
         if not self.localized_location:
-            raise ValueError("Could not localize")
+            return "Move Forward"
+
         if (len(self.localized_location) == 1):
             self.localized_location [0][1] = self.localized_location[0][1]//4
             self.drive_mode = "B"
@@ -263,7 +262,7 @@ class Localization(Maze):
             return "Move Forward"
         print(self.localized_location, self.drive_mode)
 
-        startPoint = self.localized_location[0]
+        startPoint = self.localized_location[0][0]
         self.localized_coordinate = startPoint
         self.localized = True
         print(startPoint)
@@ -271,18 +270,20 @@ class Localization(Maze):
         return "Completed"
 
     def localize3(self):
-        assert(self.new_wall_sensor_reading is not None)
+        assert(self.new_wall_sensor_reading2 is not None)
+        print(self.new_wall_sensor_reading2)
         self.localized_location = self.additional_movement_localization(self.localized_location, 
                                                                    self.new_wall_sensor_reading2,
                                                                    self.us_wall_config, 
                                                                    self.ir_wall_config)
+        print(self.localized_location)
         self.drive_mode = "B"
-        self.localized_location [0][1] = (self.localized_location [0][1])
+        self.localized_location[0][1] = (self.localized_location [0][1])
         direction = self.determine_direction_additional(self.localized_location[0])
         self.localized_location.append(direction)
         print(self.localized_location, self.drive_mode, direction)
 
-        startPoint = self.localized_location[0]
+        startPoint = self.localized_location[0][0]
         self.localized_coordinate = startPoint
         self.localized = True
         print(startPoint)

@@ -41,7 +41,7 @@ while True:
 
 	if "North:" in data:
 		us_sensor_readings = get_us_sensor_reading(data)
-		# print(us_sensor_readings)
+		print(us_sensor_readings)
 	elif "IRSensorReading" in data:
 		ir_sensor_readings = [int(reading,10) for reading in data.split(":") if (reading != '' and reading != 'IRSensorReading')]
 		print(ir_sensor_readings)
@@ -61,7 +61,7 @@ while True:
 			while True:
 				ser.write("MOVEFORWARD\n".encode())
 				data = ser.readline().decode('latin-1').strip()
-				print(data)
+				# print(data)
 				if "North:" in data:
 					us_sensor_readings = get_us_sensor_reading(data)
 				if "Stopped Moving" in data:
@@ -78,7 +78,7 @@ while True:
 						us_sensor_readings = get_us_sensor_reading(data)
 					if "Stopped Moving" in data:
 						break
-				locz.update_wall_sensor_reading2(us_sensor_reading)
+				locz.update_wall_sensor_reading2(us_sensor_readings)
 				result = locz.localize3()
 
 		if result == "Completed":

@@ -76,14 +76,17 @@ bool turning = false;
 bool loaded = false;
 int current_speed1 = 0;
 int current_speed2 = 0;
-bool surrounding[] = {false, false, false, false}; // 0 - north, 1 - east, 2 - south, 4 - west
-bool prev_surrounding[] = {false, false, false, false};
+bool surrounding[] = {true, true, true, true}; // 0 - north, 1 - east, 2 - south, 4 - west
+bool prev_surrounding[] = {true, true, true, true};
 bool surrounding_changed = false;
 int quadrant_type = 0; // 0 - intersection, 1 - T-junction, 2 - lane, 3 - alcove, 4 - corner
 int prev_quadrant_type = quadrant_type;
 
 // localization variables
 bool localized = false;
+
+// block-picking variables
+bool block_picking = false;
 
 // path planning variables
                       // w - forward, a - turn left, d - turn right, s - turn backward, e - end
@@ -128,8 +131,6 @@ void setup()
   
   gripper.attach(gripperPin); // Gripper Servo
   unloadBlock(); // start at initial position
-
-//  localize();
 }
 
 void loop()
@@ -143,13 +144,49 @@ void loop()
       localize();
     }
   }
-//  getSensorReadings(true);
-//  moveStraightForward();
-//  if(sonar_arr[0] < north_threshold or surrounding_changed)
-//    if(sonar_arr[4] > 12)
-//      turnLeft();
-//    else if(sonar_arr[1] > 12)
-//      turnRight();
+
+  // start point to loading zone
+  if(localized)
+  {
+    int counter = 0;
+    char command = '';
+    while(true)
+    {
+      getSensorReadings(true);
+      
+      if(surrounding_changed)
+      {
+        command = directions[counter];
+        counter++;
+      }
+
+      if(command == 'w')
+        moveForwardStraight();
+      else if(command == 'a')
+        turnLeft();
+      else if(command == 'd')
+        turnRight();
+
+      if(counter == directions.length() - 1)
+      {
+        spinLeft(turn_speed1, turn_speed2);
+        delay(500);
+        brake();
+        localized = false;
+        block_picking = true;
+        break;
+      }
+    }
+  }
+
+  // block picking
+  if(block_picking)
+    pickUpBlock();
+
+  // loading zone to drop off zone
+
+  // drop off zone 
+  
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,29 +270,28 @@ void detectCollision()
 void evalSurrounding()
 {
   // reset variable
-  surrounding_changed = false; 
+  surrounding_changed = false;  
   
   surrounding[0] = sonar_arr[0] <= 16;
   surrounding[1] = sonar_arr[1] < 15 and sonar_arr[2] < 15;
   surrounding[2] = sonar_arr[3] <= 16;
   surrounding[3] = sonar_arr[4] < 15 and sonar_arr[5] < 15;
 
-  if(not (prev_surrounding[2] and sonar_arr[3] < 30) and // if south was previously detected, wait till robot has sufficiently moved away from south wall
-     not (prev_surrounding[1] and sonar_arr[1] < 30 and sonar_arr[2] < 30) and // if east was previousy detected, wait till both east sensors have cleared the wall
-     not (prev_surrounding[3] and sonar_arr[3] < 30 and sonar_arr[3] < 30) and // if west was previousy detected, wait till both west sensors have cleared the wall
+  // check if wall configuration has changed
+  if((prev_surrounding[2] and sonar_arr[3] > 30 or // if south was previously detected, wait till robot has sufficiently moved away from south wall
+     (prev_surrounding[1] and sonar_arr[1] > 30 and sonar_arr[2] > 30) or  // if east was previousy detected and both east sensors have cleared a wall
+     (prev_surrounding[3] and sonar_arr[4] > 30 and sonar_arr[5] > 30) or  // if west was previousy detected and both west sensors have cleared a wall
+     (not prev_surrounding[2] and surrounding[2]) or // if south was not previously detected and is detected now
+     (not prev_surrounding[1] and surrounding[1]) or // if east was not previously detected and is detected now
+     (not prev_surrounding[3] and surrounding[3]) or // if west was not previously detected and is detected now
+     (not prev_surrounding[0] and surrounding[0])) and // if north was not previously detected and is detected now
      not turning)
   {
-    // check if wall configuration has changed
-    for(int i=0; i<4; i++)
-      if(prev_surrounding[i] != surrounding[i])
-      {
-        surrounding_changed = true;
-        prev_surrounding[0] = surrounding[0];
-        prev_surrounding[1] = surrounding[1];
-        prev_surrounding[2] = surrounding[2];
-        prev_surrounding[3] = surrounding[3];
-        break;
-      }
+    surrounding_changed = true;
+    prev_surrounding[0] = surrounding[0];
+    prev_surrounding[1] = surrounding[1];
+    prev_surrounding[2] = surrounding[2];
+    prev_surrounding[3] = surrounding[3];
   }
   
   if(surrounding_changed)
@@ -272,6 +308,7 @@ void evalSurrounding()
       quadrant_type = count;
     Serial2.println((String)"Surrounding changed! Before at quadrant type "+prev_quadrant_type+". Now at quadrant type "+quadrant_type);
   }
+  
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////// IR SENSOR FUNCTIONS ///////////////////////////////////////////////
@@ -299,6 +336,10 @@ void moveForward(int right_motor_speed, int left_motor_speed)
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
+  analogWrite(RightMotorPWM, 255);
+  analogWrite(LeftMotorPWM, 255);
+  delay(50);
+  
   analogWrite(RightMotorPWM, right_motor_speed);
   analogWrite(LeftMotorPWM, left_motor_speed);
 
@@ -327,6 +368,10 @@ void spinLeft(int right_motor_speed, int left_motor_speed)
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
 
+  analogWrite(RightMotorPWM, (int) 255 * right_motor_speed / (right_motor_speed + 1));
+  analogWrite(LeftMotorPWM, (int) 255 * left_motor_speed / (left_motor_speed + 1));
+  delay(20);
+
   analogWrite(RightMotorPWM, right_motor_speed);
   analogWrite(LeftMotorPWM, left_motor_speed);
 
@@ -340,6 +385,10 @@ void spinRight(int right_motor_speed, int left_motor_speed)
   digitalWrite(LeftMotorIn1, HIGH);
   digitalWrite(RightMotorIn2, LOW);
   digitalWrite(LeftMotorIn2, LOW);
+
+  analogWrite(RightMotorPWM, (int) 255 * right_motor_speed / (right_motor_speed + 1));
+  analogWrite(LeftMotorPWM, (int) 255 * left_motor_speed / (left_motor_speed + 1));
+  delay(20);
 
   analogWrite(RightMotorPWM, right_motor_speed);
   analogWrite(LeftMotorPWM, left_motor_speed);
@@ -397,31 +446,32 @@ void unloadBlock()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void moveStraightForward()
 {
-  // have the robot adjust parallel to the walls
-  if((sonar_arr[1] > 30 or sonar_arr[4] > 30) and quadrant_type == 2)
-  {
-    moveBackward(backward_speed1, backward_speed2);
-    delay(200);
-    brake();
-    while(true)
-    {
-      if(sonar_arr[2] > sonar_arr[1] and sonar_arr[5] < sonar_arr[4])
-      {
-        spinLeft(turn_speed1, turn_speed2);
-        delay(100);
-        brake();
-      }
-      else if(sonar_arr[2] < sonar_arr[1] and sonar_arr[5] > sonar_arr[4])
-      {
-        spinRight(turn_speed1, turn_speed2);
-        delay(100);
-        brake();
-      }
-      else
-        break;
-    }
-    quadrant_type = 5; // a hacky way to indicate the robot has already been adjusted
-  }
+//  // have the robot adjust parallel to the walls
+//  if((sonar_arr[1] > 30 or sonar_arr[4] > 30) and quadrant_type == 2)
+//  {
+//    moveBackward(backward_speed1, backward_speed2);
+//    delay(200);
+//    brake();
+//    while(true)
+//    {
+//      Serial2.println("Robot adjusting parallel to the walls");
+//      if(sonar_arr[2] > sonar_arr[1] + 2 and sonar_arr[5] + 2 < sonar_arr[4])
+//      {
+//        spinLeft(turn_speed1, turn_speed2);
+//        delay(100);
+//        brake();
+//      }
+//      else if(sonar_arr[2] + 2 < sonar_arr[1] and sonar_arr[5] > sonar_arr[4] + 2)
+//      {
+//        spinRight(turn_speed1, turn_speed2);
+//        delay(100);
+//        brake();
+//      }
+//      else
+//        break;
+//    }
+//    quadrant_type = 5; // a hacky way to indicate the robot has already been adjusted
+//  }
   
   if(sonar_arr[1] <= 10 && sonar_arr[4] <= 10)
   {
@@ -461,103 +511,97 @@ void moveStraightForward()
 }
 void turnLeft()
 {
-  Serial2.println("Turning Left");
-  turning = true;
-  int count = 0;
-  while(true)
-  {
-    getSensorReadings(true);
-
-    if(quadrant_type == 0)
-    {
-      Serial2.println("Intersection left turn");
-      if(sonar_arr[0] > north_threshold and // front path is clear
-         count >= 2 and // turned incrementally at least 2 times
-         (sonar_arr[1] > 30 and sonar_arr[2] > 30)) // both east sensors read over 30
-        break;
-    }
-    else if(quadrant_type == 1)
-    {
-      Serial2.println("T-junction left turn");
-      if(sonar_arr[0] > north_threshold and // front path is clear
-         count >= 2 and // turned incrementally at least 3 times
-         (abs(sonar_arr[1] - sonar_arr[2]) < 2 or sonar_arr[3] < 10))
-        break;
-    }
-    else
-    {
-      Serial2.println("Corner left turn");
-      if(sonar_arr[0] > north_threshold and // front path is clear
-       count >= 2 and // turned incrementally at least 2 times
-       abs(sonar_arr[1] - sonar_arr[2]) < 2 and // the east sensors are parallel to the wall
-       sonar_arr[1] < 12 and sonar_arr[2] < 12 and // the east sensors are close to the wall
-       sonar_arr[3] < 10) // the back sensors detect a wall
-        break;
-
-      // debug purpose statement
-      String msg = "";
-      if(not (sonar_arr[0] > north_threshold))
-        msg += (String) sonar_arr[0]+" < "+north_threshold;
-      if(not (abs(sonar_arr[1] - sonar_arr[2]) < 2))
-        msg += (String) ", "+abs(sonar_arr[1] - sonar_arr[2])+"< 2";
-      if(not (sonar_arr[1] < 12 and sonar_arr[2] < 12))
-        msg += (String) ", "+sonar_arr[1]+"< 12 and "+sonar_arr[2]+" < 12";
-      if(not (sonar_arr[3] < 10))
-        msg += (String) ", "+sonar_arr[3]+"< 10";
-      Serial2.println((String) "Turn not completed yet due to: "+msg+".");
-    }
-
-    spinLeft(turn_speed1, turn_speed2);
-    delay(200);
-    brake();
-    
-    count++;
-  }
-  Serial2.println("Turning Completed");
-  turning = false;
+//  Serial2.println("Turning Left");
+//  turning = true;
+//  int count = 0;
+//  while(true)
+//  {
+//    getSensorReadings(true);
+//
+//    if(quadrant_type == 0)
+//    {
+//      Serial2.println("Intersection left turn");
+//      if(sonar_arr[0] > north_threshold and // front path is clear
+//         count >= 2 and // turned incrementally at least 2 times
+//         (sonar_arr[1] > 30 and sonar_arr[2] > 30)) // both east sensors read over 30
+//        break;
+//    }
+//    else if(quadrant_type == 1)
+//    {
+//      Serial2.println("T-junction left turn");
+//      if(sonar_arr[0] > north_threshold and // front path is clear
+//         count >= 2 and // turned incrementally at least 3 times
+//         (abs(sonar_arr[1] - sonar_arr[2]) < 2 or sonar_arr[3] < 10))
+//        break;
+//    }
+//    else
+//    {
+//      Serial2.println("Corner left turn");
+//      if(sonar_arr[0] > north_threshold and // front path is clear
+//       count >= 2 and // turned incrementally at least 2 times
+//       abs(sonar_arr[1] - sonar_arr[2]) < 2 and // the east sensors are parallel to the wall
+//       sonar_arr[3] < 10) // the back sensors detect a wall
+//        break;
+//    }
+//
+//    spinLeft(turn_speed1, turn_speed2);
+//    delay(200);
+//    brake();
+//    
+//    count++;
+//  }
+//  Serial2.println("Turning Completed");
+//  turning = false;
+  spinLeft(255, 255);
+  delay(100);
+  brake();
+  
 }
 
 void turnRight()
 {
-  Serial2.println("Turning Right");
-  turning = true;
-  int count = 0;
-  while(true)
-  {
-    getSensorReadings(true);
-
-    if(quadrant_type == 0)
-    {
-      Serial2.println("Intersection right turn");
-      if(sonar_arr[0] > north_threshold and // front path is clear
-         count >= 2 and // turned incrementally at least 2 times
-         (sonar_arr[4] > 30 and sonar_arr[5] > 30)) // both west sensors read over 30
-        break;
-    }
-    else if(quadrant_type == 1)
-    {
-      Serial2.println("T-junction right turn");
-      if(sonar_arr[0] > north_threshold and // front path is clear
-         count >= 2 and // turned incrementally at least 3 times
-         (abs(sonar_arr[4] - sonar_arr[5]) < 2 or sonar_arr[3] < 10))
-        break;
-    }
-    else
-    {
-      if(sonar_arr[0] > north_threshold and // front path is clear
-         count >= 2 and // turned incrementally at least 3 times
-         abs(sonar_arr[4] - sonar_arr[5]) < 2 and // the west sensors are parallel to the wall
-         sonar_arr[3] < 10) // the back sensors detect a wall
-        break;
-    }
-
-    spinRight(turn_speed1, turn_speed2);
-    delay(200);
-    brake();
-    
-    count++;
-  }
-  turning = false;
+//  Serial2.println("Turning Right");
+//  turning = true;
+//  int count = 0;
+//  while(true)
+//  {
+//    getSensorReadings(true);
+//
+//    if(quadrant_type == 0)
+//    {
+//      Serial2.println("Intersection right turn");
+//      if(sonar_arr[0] > north_threshold and // front path is clear
+//         count >= 2 and // turned incrementally at least 2 times
+//         (sonar_arr[4] > 30 and sonar_arr[5] > 30)) // both west sensors read over 30
+//        break;
+//    }
+//    else if(quadrant_type == 1)
+//    {
+//      Serial2.println("T-junction right turn");
+//      if(sonar_arr[0] > north_threshold and // front path is clear
+//         count >= 2 and // turned incrementally at least 3 times
+//         (abs(sonar_arr[4] - sonar_arr[5]) < 2 or sonar_arr[3] < 10))
+//        break;
+//    }
+//    else
+//    {
+//      if(sonar_arr[0] > north_threshold and // front path is clear
+//         count >= 2 and // turned incrementally at least 3 times
+//         abs(sonar_arr[4] - sonar_arr[5]) < 2 and // the west sensors are parallel to the wall
+//         sonar_arr[3] < 10) // the back sensors detect a wall
+//        break;
+//    }
+//
+//    spinRight(turn_speed1, turn_speed2);
+//    delay(200);
+//    brake();
+//    
+//    count++;
+//  }
+//  turning = false;
+  spinRight(255, 255);
+  delay(100);
+  brake();
 }
 
 void adjustLeft(bool backward)
@@ -630,6 +674,7 @@ void localize()
     if(Serial2.available() > 0)
     {
       paths = Serial2.readStringUntil('\n');
+      Serial2.println(paths);
       Serial2.println("Recieved the paths!");
     }
     if(paths != "")
