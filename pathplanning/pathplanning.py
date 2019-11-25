@@ -219,15 +219,15 @@ def convertToMotion(path):
         xslope.append(dx)
         if dy == 0 and dx != 0:
             if dx == -1:
-                steps.append('down')
+                steps.append('Down')
             elif dx == 1:
-                steps.append('up')
+                steps.append('Up')
 
         elif dx == 0 and dy!=0:
             if dy == -1:
-                steps.append('left')
+                steps.append('Right')
             elif dy == 1:
-                steps.append('right')
+                steps.append('Left')
     motion=[]
     count=0
 
