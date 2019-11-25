@@ -43,13 +43,51 @@ maze2=[[0,0,0,0,0,0,1,3],
       [2,2,1,0,0,0,0,0],
       [2,2,4,0,1,3,1,3]]
 #Maze list that will be changed to visualize path
-maze3=      [[0,1,0,0,0,0,0,0],
-            [0,1,0,1,1,0,1,0],
-            [0,0,0,0,0,1,0,0],
-            [0,1,0,1,0,0,0,0]]
+maze3=[[0,1,0,0,0,0,0,0],
+             [0,1,0,1,1,0,1,0],
+             [0,0,0,0,0,1,0,0],
+             [0,1,0,1,0,0,0,0]]
 
 #loadingZone=[[3,0],[3,1],[2,0],[2,1]]
 #dropoffPoint=[[1,2],[0,7],[3,5],[3,7]]
+
+
+wallrow = np.array([[[0, 1, 1, 1], [1, 1, 1, 0], [1, 1, 0, 1], [1, 0, 1, 1],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1],
+                     [0, 1, 1, 0], [1, 1, 0, 0], [1, 0, 0, 1], [0, 0, 1, 1],
+                     [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1],
+                     [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1],
+                     [0, 0, 1, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1],
+                     [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1],
+                     [0, 0, 1, 1], [0, 1, 1, 0], [1, 1, 0, 0], [1, 0, 0, 1]],
+
+                    [[0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1],
+                     [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1],
+                     [1, 1, 0, 1], [1, 0, 1, 1], [0, 1, 1, 1], [1, 1, 1, 0],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1],
+                     [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0]],
+
+                    [[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0],
+                     [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1],
+                     [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0],
+                     [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1],
+                     [0, 0, 1, 1], [0, 1, 1, 0], [1, 1, 0, 0], [1, 0, 0, 1],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1],
+                     [0, 1, 1, 0], [1, 1, 0, 0], [1, 0, 0, 1], [0, 0, 1, 1],
+                     [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0], [1, 0, 0, 0]],
+
+                    [[1, 1, 0, 1], [1, 0, 1, 1], [0, 1, 1, 1], [1, 1, 1, 0],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [0, 1, 0, 0],
+                     [1, 1, 0, 1], [1, 0, 1, 1], [0, 1, 1, 1], [1, 1, 1, 0],
+                     [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1],
+                     [1, 1, 0, 0], [1, 0, 0, 1], [0, 0, 1, 1], [0, 1, 1, 0],
+                     [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1],
+                     [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0],
+                     [1, 0, 0, 1], [0, 0, 1, 1], [0, 1, 1, 0], [1, 1, 0, 0]]])
+
 
 #locations of blocks just before entering dropff zone
 LZRight=(3,5)
@@ -192,11 +230,12 @@ def robotPathtoB(start,end):
 #example starting coordinates
 #start1=(2,7) #given from localization backend
 start1=(0,0)
-LZend=LZRight #can be this or LZRight depending on what we decided
+LZend=LZRight#can be this or LZRight depending on what we decided
 #example path starting coordinates
 #start2=(2,3)
 #dropoff=(1,2)
 #Call robotPathtoLZ function to get path to blocks LZ. This is using a map with LZ blocks not a part of path solution space so it doesn't travel in LZ and move block to hard to reach location
+
 pathtoLZ=(robotPathtoLZ(start1,LZend))
 print(pathtoLZ)
 
@@ -262,4 +301,88 @@ def convertToMotion(path):
 #Know initial coordinate from localization and know our final destination; path is returned
 #if two or more motion steps are the same, continue moving forward until state change
 
-convertToMotion(pathtoLZ)
+path_list = convertToMotion(pathtoLZ)
+
+def determine_orientation (coordinate_index):
+
+
+    direction_value = coordinate_index[1]
+
+    switcher = {
+            0: 1,
+            1: 2,
+            2: 3,
+            3: 4,
+            4: 1,
+            5: 2,
+            6: 3,
+            7: 4,
+            8: 1,
+            9: 2,
+            10: 3,
+            11: 4,
+            12: 1,
+            13: 2,
+            14: 3,
+            15: 4,
+            16: 1,
+            17: 2,
+            18: 3,
+            19: 4,
+            20: 1,
+            21: 2,
+            22: 3,
+            23: 4,
+            24: 1,
+            25: 2,
+            26: 3,
+            27: 4,
+            28: 1,
+            29: 2,
+            30: 3,
+            31: 4,
+            }
+    return switcher.get(direction_value, None)
+
+#def quadrantChange(previous_location, next_location, USSensorReading, wallrow, globaldirection):
+
+
+def robotMotion(nextHeading, currentLocation, wallrow, USSensorReading):
+
+    convertedHeading = 1
+    if nextHeading == 'Right':
+        convertedHeading = 2
+    if nextHeading == 'Down':
+        convertedHeading = 3
+    if nextHeading == 'Left':
+        convertedHeading = 4
+
+    motion = 'W'
+
+    currentHeading=0
+    count = 0
+    USList=[]
+    for i in range (currentLocation[1]*4,(currentLocation[1])*4+4):
+        for j in range(0,4):
+            if wallrow[currentLocation[0]][i][j] == USSensorReading[j]:
+                count+=1
+        if count == 4:
+            USList.append(currentLocation[0])
+            USList.append(i)
+        count = 0
+    currentHeading = determine_orientation(USList)
+    print (currentHeading)
+
+    #Make a do while loop in Arduino to keep turning until wall sensor readings match the global direction value for the same quadrant
+    change = currentHeading - convertedHeading
+    if change == -1 or change == 3: #Right by 90 deg
+        motion = 'D'
+    if change == -2 or change == 2: #Right by 180 deg
+        motion = 'D'
+    if change == -3 or change == 1: #Left by 90 deg
+        motion = 'A'
+
+    print (motion)
+    return motion
+
+robotMotion('Left',[2,0],wallrow,[0,0,0,1])
