@@ -25,10 +25,10 @@ mazeQuadrant=[[4,2,1,2,2,4,5,3],
             [4,1,2,4,5,1,5,3]
             ]
 
-mazeOriginal=[[0,0,0,0,0,0,1,0],
-            [0,1,0,1,1,0,1,0],
-            [0,0,1,0,0,0,0,0],
-            [0,0,0,0,1,0,1,0]]
+mazeOriginal=[[0,1,0,0,0,0,0,0],
+             [0,1,0,1,1,0,1,0],
+             [0,0,0,0,0,1,0,0],
+             [0,1,0,1,0,0,0,0]]
 
 
 #maze with loading zone blocked off as potential region for robot path
@@ -43,17 +43,17 @@ maze2=[[0,0,0,0,0,0,1,3],
       [2,2,1,0,0,0,0,0],
       [2,2,4,0,1,3,1,3]]
 #Maze list that will be changed to visualize path
-maze3=[[0,0,0,0,0,0,1,0],
-      [0,1,0,1,1,0,1,0],
-      [0,0,1,0,0,0,0,0],
-      [0,0,0,0,1,0,1,0]]
+maze3=      [[0,1,0,0,0,0,0,0],
+            [0,1,0,1,1,0,1,0],
+            [0,0,0,0,0,1,0,0],
+            [0,1,0,1,0,0,0,0]]
 
 #loadingZone=[[3,0],[3,1],[2,0],[2,1]]
 #dropoffPoint=[[1,2],[0,7],[3,5],[3,7]]
 
 #locations of blocks just before entering dropff zone
-LZRight=(3,2)
-LZLeft=(1,0)
+LZRight=(3,5)
+LZLeft=(1,7)
 
 class Node():
     """A node class for A* Pathfinding"""
@@ -155,7 +155,7 @@ def astar(maze, start, end):
 def plotMaze(maze):
     plt.figure(figsize=(8,4))
     cmap = colors.ListedColormap(['Blue','red','purple','green','y'])
-    plt.pcolor(maze[::],cmap=cmap,edgecolors='k', linewidths=3)
+    plt.pcolor(maze[::-1],cmap=cmap,edgecolors='k', linewidths=3)
     plt.show()
 
 
@@ -191,7 +191,7 @@ def robotPathtoB(start,end):
 
 #example starting coordinates
 #start1=(2,7) #given from localization backend
-start1=(3,0)
+start1=(0,0)
 LZend=LZRight #can be this or LZRight depending on what we decided
 #example path starting coordinates
 #start2=(2,3)
@@ -233,10 +233,10 @@ def convertToMotion(path):
 
     for j in range(1,len(steps)):
         if steps[j] == steps[j-1]:
-            if steps[j] == steps[j+1]:
-                continue
             motion.append('fwd')
-
+            #if steps[j] == steps[j+1]:
+            #continue
+            #motion.append('fwd')
         elif steps[j] == 'down' and steps[j-1] == 'left':
             motion.append('turn left')
         elif steps[j] == 'down' and steps[j-1] == 'right':
@@ -255,7 +255,7 @@ def convertToMotion(path):
         elif steps[j] == 'left' and steps[j-1] == 'up':
             motion.append('turn left')
 
-#    print(steps)
+    print(steps)
 
 #    print(motion)
 
