@@ -344,7 +344,34 @@ def determine_orientation (coordinate_index):
             }
     return switcher.get(direction_value, None)
 
-#def quadrantChange(previous_location, next_location, USSensorReading, wallrow, globaldirection):
+def modified_heading (inputheading):
+    convertedHeading = 1
+    if inputheading == 'Right':
+        convertedHeading = 2
+    if inputheading == 'Down':
+        convertedHeading = 3
+    if inputheading == 'Left':
+        convertedHeading = 4
+
+    return convertedHeading
+
+def quadrantChange(previous_location, next_location, USSensorReading, wallrow, globaldirection, pathtoLZ):
+    count = 0
+    heading = modified_heading(globaldirection)
+    motion = ''
+    US_Sensor_next_location = wallrow [next_location[0]][(next_location[1])*4+(heading-1)]
+    for i in range (0, len(USSensorReading)):
+        if US_Sensor_next_location[i] == USSensorReading [i]:
+            count+=1
+    if count ==4:
+        pathtoLZ.remove(previous_location)
+        motion = 'B'
+        previous_location = next_location
+        next_location = pathtoLZ [0]
+    count = 0
+    else:
+        motion = 'W'
+    return (previous_location, next_location, pathtoLZ, motion)
 
 
 def robotMotion(nextHeading, currentLocation, wallrow, USSensorReading):
