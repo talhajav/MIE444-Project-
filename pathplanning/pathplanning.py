@@ -294,7 +294,7 @@ def convertToMotion(path):
         elif steps[j] == 'left' and steps[j-1] == 'up':
             motion.append('turn left')
 
-    print(steps)
+    return steps
 
 #    print(motion)
 
@@ -302,6 +302,7 @@ def convertToMotion(path):
 #if two or more motion steps are the same, continue moving forward until state change
 
 path_list = convertToMotion(pathtoLZ)
+print (path_list)
 
 def determine_orientation (coordinate_index):
 
@@ -355,23 +356,29 @@ def modified_heading (inputheading):
 
     return convertedHeading
 
-def quadrantChange(previous_location, next_location, USSensorReading, wallrow, globaldirection, pathtoLZ):
+def quadrantChange(previous_location, next_location, USSensorReading, wallrow, path_list, pathtoLZ):
     count = 0
-    heading = modified_heading(globaldirection)
+    heading = modified_heading(path_list[0])
     motion = ''
     US_Sensor_next_location = wallrow [next_location[0]][(next_location[1])*4+(heading-1)]
     for i in range (0, len(USSensorReading)):
         if US_Sensor_next_location[i] == USSensorReading [i]:
             count+=1
-    if count ==4:
+    if count == 4:
         pathtoLZ.remove(previous_location)
         motion = 'B'
         previous_location = next_location
-        next_location = pathtoLZ [0]
-    count = 0
+        next_location = pathtoLZ [1]
+        path_list.remove(path_list[0])
+        count = 0
     else:
         motion = 'W'
-    return (previous_location, next_location, pathtoLZ, motion)
+    print (previous_location)
+    print (next_location)
+    print (pathtoLZ)
+    print (motion)
+    print (path_list)
+    return (previous_location, next_location, pathtoLZ, path_list, motion)
 
 
 def robotMotion(nextHeading, currentLocation, wallrow, USSensorReading):
@@ -412,4 +419,10 @@ def robotMotion(nextHeading, currentLocation, wallrow, USSensorReading):
     print (motion)
     return motion
 
+USSensorReading1 = [0, 1, 0, 1]
+previous_or_initialLocation = [1, 0]
+upcominglocation = [2,0]
+
 robotMotion('Left',[2,0],wallrow,[0,0,0,1])
+#print (path_list)
+quadrantChange (previous_or_initialLocation, upcominglocation, USSensorReading1, wallrow, path_list, pathtoLZ)
