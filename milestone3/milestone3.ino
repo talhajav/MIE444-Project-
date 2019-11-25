@@ -51,6 +51,14 @@ int prev_sonar_arr[] = {0, 0, 0, 0, 0, 0};
 int sonar_delay = 10; // ms
 int sonar_avg = 5; // average x readings
 
+// IR sensors
+#define IR_1 32 // Front right
+#define IR_2 33 // Front left
+#define IR_3 30 // Back right
+#define IR_4 31 // Back left
+int IR_Sensors[4] = {IR_1, IR_2, IR_3, IR_4};
+int IR_Readings[4] = {0, 0, 0, 0};
+
 // obstacle variables
 int north_threshold = 14; // cm
 int south_threshold = 11; // cm
@@ -105,12 +113,18 @@ void testSpinRight();
 
 void setup()
 {
+  Serial.begin(9600);
   Serial2.begin(9600);
 
   pinMode(RightMotorIn1, OUTPUT); // Right Motor
   pinMode(RightMotorIn2, OUTPUT);
   pinMode(LeftMotorIn1, OUTPUT); // Left motor
   pinMode(LeftMotorIn2, OUTPUT);
+
+  pinMode(IR_1, INPUT);
+  pinMode(IR_2, INPUT);
+  pinMode(IR_3, INPUT);
+  pinMode(IR_4, INPUT);
   
   gripper.attach(gripperPin); // Gripper Servo
   unloadBlock(); // start at initial position
@@ -121,12 +135,12 @@ void setup()
 void loop()
 {
   getSensorReadings(true);
-  moveStraightForward();
-  if(sonar_arr[0] < north_threshold or surrounding_changed)
-    if(sonar_arr[4] > 12)
-      turnLeft();
-    else if(sonar_arr[1] > 12)
-      turnRight();
+//  moveStraightForward();
+//  if(sonar_arr[0] < north_threshold or surrounding_changed)
+//    if(sonar_arr[4] > 12)
+//      turnLeft();
+//    else if(sonar_arr[1] > 12)
+//      turnRight();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -166,6 +180,7 @@ void getSensorReadings(bool average_the_readings)
   }
   printSensorReadings();
   evalSurrounding();
+  IR_Read(); // sticking IR sensor reading function here. TODO: Rearchitect the code
 }
 
 void printSensorReadings()
@@ -246,6 +261,22 @@ void evalSurrounding()
       quadrant_type = count;
     Serial2.println((String)"Surrounding changed! Before at quadrant type "+prev_quadrant_type+". Now at quadrant type "+quadrant_type);
   }
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////// IR SENSOR FUNCTIONS ///////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void IR_Read() 
+{
+  //1 = black 0 = white 
+  for (int i = 0; i < 4; i++){
+    IR_Readings[i] = digitalRead(IR_Sensors[i]);
+  }
+  sendToPython();
+}
+void sendToPython()
+{
+  Serial2.println((String)"IRSensorReading"+":"+IR_Readings[0] +":"+ IR_Readings[1] +":"+ IR_Readings[2] +":"+ IR_Readings[3]);
+  Serial.println((String)"IRSensorReading"+":"+IR_Readings[0] +":"+ IR_Readings[1] +":"+ IR_Readings[2] +":"+ IR_Readings[3]);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////// BASIC MOTION FUNCTIONS /////////////////////////////////////////////

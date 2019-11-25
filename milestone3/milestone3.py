@@ -2,14 +2,23 @@ import serial
 import cv2
 import time
 import numpy as np
+from localization import Localization
 """
 To check the port number on on Windows:
 	Control panel > Hardware and Sound > Devices and Printers 
 	> double click on the bluetooth device > choose Hardware tab
 """
+# bluetooth variables
 port = 'COM5' # 'COM5', 'COM7'
 ser = serial.Serial(port, baudrate=9600, timeout=1)
 
+# IR variables
+IRArray=[] # format = [front right, front left, back right, back left]
+
+# localization variables
+locz = Localization()
+
+# visualization variables
 window_size = 800	
 org = (int(window_size / 2), int(window_size / 2)) # (x, y)
 rover_pos = [(org[0]-28, org[1]-50), (org[0]+32, org[1]+50)] # top left corner, bot right corner
@@ -71,10 +80,19 @@ while True:
 	if not data:
 		continue
 
+	IRdata=(data[0].split(':'))
+
 	if "North:" in data:
 		#  data = f"North: 1. East1: 4. East2: 5. South: 10. West1: 6. West2: 5"
 		readings = {direction.strip(): int(measurement.strip()) for direction, measurement in [reading.split(":") for reading in data.split(".")]}
 		visualize(readings)
+	elif "IRSensorReading" in data:
+		IRArray = []
+		IRdata = data.split(":")
+		for reading in IRdata:
+			if reading != '' and reading != 'IRSensorReading':
+				IRArray.append(int(reading,10))
+		print(IRArray)
 	else:
 		print(data)
 
