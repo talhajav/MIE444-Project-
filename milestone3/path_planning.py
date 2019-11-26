@@ -162,7 +162,56 @@ class PathPlanning(Maze):
 
         return self.convertToList(path)
 
-    def determine_orientation (self, coordinate_index):
+    def convertToMotion(self, path):
+        yslope=[]
+        xslope=[]
+        steps=[]
+        for i in range(1,len(path)):
+            dx=path[i][0]-path[i-1][0]
+            dy=path[i][1]-path[i-1][1]
+            yslope.append(dy)
+            xslope.append(dx)
+            if dy == 0 and dx != 0:
+                if dx == -1:
+                    steps.append('Down')
+                elif dx == 1:
+                    steps.append('Up')
+
+            elif dx == 0 and dy!=0:
+                if dy == -1:
+                    steps.append('Right')
+                elif dy == 1:
+                    steps.append('Left')
+        motion=[]
+        count=0
+
+        # for j in range(1,len(steps)):
+        #     if steps[j] == steps[j-1]:
+        #         motion.append('fwd')
+        #         #if steps[j] == steps[j+1]:
+        #         #continue
+        #         #motion.append('fwd')
+        #     elif steps[j] == 'down' and steps[j-1] == 'left':
+        #         motion.append('turn left')
+        #     elif steps[j] == 'down' and steps[j-1] == 'right':
+        #         motion.append('turn right')
+        #     elif steps[j] == 'up' and steps[j-1] == 'left':
+        #         motion.append('turn right')
+        #     elif steps[j] == 'up' and steps[j-1] == 'right':
+        #         motion.append('turn left')
+
+        #     elif steps[j] == 'left' and steps[j-1] == 'down':
+        #         motion.append('turn right')
+        #     elif steps[j] == 'right' and steps[j-1] == 'down':
+        #         motion.append('turn left')
+        #     elif steps[j] == 'right' and steps[j-1] == 'up':
+        #         motion.append('turn right')
+        #     elif steps[j] == 'left' and steps[j-1] == 'up':
+        #         motion.append('turn left')
+
+        return steps
+    
+    def determine_orientation(self, coordinate_index):
         direction_value = coordinate_index[1]
 
         switcher = {0: 1,
@@ -199,35 +248,40 @@ class PathPlanning(Maze):
                     31: 4}
         return switcher.get(direction_value, None)
 
-    # def modified_heading(self, inputheading):
-    #     convertedHeading = 1
-    #     if inputheading == 'Right':
-    #         convertedHeading = 2
-    #     if inputheading == 'Down':
-    #         convertedHeading = 3
-    #     if inputheading == 'Left':
-    #         convertedHeading = 4
+    def modified_heading (inputheading):
+        convertedHeading = 1
+        if inputheading == 'Right':
+            convertedHeading = 2
+        if inputheading == 'Down':
+            convertedHeading = 3
+        if inputheading == 'Left':
+            convertedHeading = 4
 
-    #     return convertedHeading
+        return convertedHeading
 
-    # def quadrantChange(self, previous_location, next_location, USSensorReading, wallrow, globaldirection, pathtoLZ):
-    #     count = 0
-    #     heading = self.modified_heading(globaldirection)
-    #     motion = ''
-    #     US_Sensor_next_location = wallrow [next_location[0]][(next_location[1])*4+(heading-1)]
-    #     for i in range (0, len(USSensorReading)):
-    #         if US_Sensor_next_location[i] == USSensorReading[i]:
-    #             count+=1
-
-    #     if count == 4:
-    #         pathtoLZ.remove(previous_location)
-    #         motion = 'B'
-    #         previous_location = next_location
-    #         next_location = pathtoLZ [0]
-    #     count = 0
-    #     else:
-    #         motion = 'W'
-    #     return (previous_location, next_location, pathtoLZ, motion)
+    def quadrantChange(self, previous_location, next_location, USSensorReading, wallrow, path_list, pathtoLZ):
+        count = 0
+        heading = self.modified_heading(path_list[0])
+        motion = ''
+        US_Sensor_next_location = wallrow [next_location[0]][(next_location[1])*4+(heading-1)]
+        for i in range (0, len(USSensorReading)):
+            if US_Sensor_next_location[i] == USSensorReading [i]:
+                count+=1
+        if count == 4:
+            pathtoLZ.remove(previous_location)
+            motion = 'B'
+            previous_location = next_location
+            next_location = pathtoLZ [1]
+            path_list.remove(path_list[0])
+            count = 0
+        else:
+            motion = 'W'
+        print (previous_location)
+        print (next_location)
+        print (pathtoLZ)
+        print (motion)
+        print (path_list)
+        return (previous_location, next_location, pathtoLZ, path_list, motion)
 
 
     def robotMotion(self, nextHeading, currentLocation, wallrow, USSensorReading):
@@ -254,7 +308,7 @@ class PathPlanning(Maze):
                 USList.append(i)
             count = 0
         currentHeading = self.determine_orientation(USList)
-        print(currentHeading)
+        print (currentHeading)
 
         #Make a do while loop in Arduino to keep turning until wall sensor readings match the global direction value for the same quadrant
         change = currentHeading - convertedHeading

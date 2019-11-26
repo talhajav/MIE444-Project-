@@ -65,7 +65,7 @@ def visualize(readings):
 	cv2.imshow('Sensor Visualization', image)
 	cv2.waitKey(1) # display window for 1 ms
 
-# ser.write("A".encode())
+ser.write("A".encode())
 while True:
 	data = ser.readline().decode('latin-1').strip()
 	if not data:
@@ -75,6 +75,7 @@ while True:
 		#  data = f"North: 1. East1: 4. East2: 5. South: 10. West1: 6. West2: 5"
 		readings = {direction.strip(): int(measurement.strip()) for direction, measurement in [reading.split(":") for reading in data.split(".")]}
 		visualize(readings)
+		print(readings)
 	else:
 		print(data)
 

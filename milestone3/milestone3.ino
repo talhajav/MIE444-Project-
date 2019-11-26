@@ -11,7 +11,7 @@ Servo gripper;
 
 // servo position
 int startPos = 170;
-int finalPos = startPos - 105;
+int finalPos = startPos - 115;
 
 // dc motor
 #define LeftMotorIn1 12
@@ -37,6 +37,7 @@ int turn_speed2 = 160; // left motor
 #define ECHO_PIN_NORTH 48 // orange
 #define ECHO_PIN_EAST2 53 // brown/grey
 #define ECHO_PIN_EAST1 51 // purple
+#define BLOCK_SENSOR 37 //BROWN 
 #define MAX_DISTANCE 400
 
 NewPing sonar_north(TRIGGER_PIN, ECHO_PIN_NORTH, MAX_DISTANCE);
@@ -45,6 +46,8 @@ NewPing sonar_east2(TRIGGER_PIN, ECHO_PIN_EAST2, MAX_DISTANCE);
 NewPing sonar_south(TRIGGER_PIN, ECHO_PIN_SOUTH, MAX_DISTANCE);
 NewPing sonar_west1(TRIGGER_PIN, ECHO_PIN_WEST1, MAX_DISTANCE);
 NewPing sonar_west2(TRIGGER_PIN, ECHO_PIN_WEST2, MAX_DISTANCE);
+NewPing blockSensorUS(TRIGGER_PIN, BLOCK_SENSOR,   200);
+
                     // 0 - north , 1 - east1, 2 - east2, 3 - south, 4 - west1, 5 - west2
 int sonar_arr[] = {0, 0, 0, 0, 0, 0};
 int prev_sonar_arr[] = {0, 0, 0, 0, 0, 0};
@@ -61,7 +64,7 @@ int IR_Readings[4] = {0, 0, 0, 0};
 
 // obstacle variables
 int north_threshold = 14; // cm
-int south_threshold = 11; // cm
+int south_threshold = 400; // cm
 int east_threshold = 7; // cm
 int west_threshold = 7; // cm
 int min_threshold = 4; // cm
@@ -87,10 +90,21 @@ bool localized = false;
 
 // block-picking variables
 bool block_picking = false;
+bool picked_up_block = false;
+bool dropping_block = false;
+// pick up block function variables
+int blockSensor = 0;
+int southSensor = 0;
+int scanSpeed = 90;
+bool block;
+bool blockFound = false;
+bool blockPicked = false;
 
 // path planning variables
                       // w - forward, a - turn left, d - turn right, s - turn backward, e - end
-char directions[] = {'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e'}; // stops at every surrounding change (wall configuration changes)
+char directions[] = {'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e'}; // stops at every surrounding change (wall configuration changes)
+int drop_off_zone = 1;
+char drop_off_directions[] = {'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e'};
 
 // function declaration
 void getSensorReadings();
@@ -109,6 +123,9 @@ void turnRight(); // 90 degrees
 void adjustLeft();
 void adjustRight();
 void localize();
+void pickUpBlock();
+void pickUpBlockScan();
+void dropOffBlock();
 void testMoveForward();
 void testMoveBackward();
 void testSpinLeft();
@@ -131,17 +148,40 @@ void setup()
   
   gripper.attach(gripperPin); // Gripper Servo
   unloadBlock(); // start at initial position
+
+  if(drop_off_zone == 1)
+  {
+    char dp_directions[] = {'w', 'w', 'w', 'a', 'w', 'w', 'w', 'd', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e', 'e'};
+    memcpy(drop_off_directions, dp_directions, sizeof(dp_directions[0])*sizeof(dp_directions));
+  }
+  else if(drop_off_zone == 2)
+  {
+    char dp_directions[] = {'w', 'w', 'a', 'w', 'w', 'w', 'w', 'w', 'a', 'w', 'w', 'd', 'd', 'e', 'e', 'e', 'e'};
+    memcpy(drop_off_directions, dp_directions, sizeof(dp_directions[0])*sizeof(dp_directions));
+  }
+  else if(drop_off_zone == 3)
+  {
+    char dp_directions[] = {'w', 'w', 'a', 'w', 'w', 'w', 'w', 'w', 'a', 'w', 'w', 'd', 'w', 'w', 'd', 'e', 'e'};
+    memcpy(drop_off_directions, dp_directions, sizeof(dp_directions[0])*sizeof(dp_directions));
+  }
+  else if(drop_off_zone == 4)
+  {
+    char dp_directions[] = {'w', 'w', 'a', 'w', 'w', 'w', 'w', 'w', 'a', 'w', 'w', 'd', 'w', 'w', 'a', 's', 'e'};
+    memcpy(drop_off_directions, dp_directions, sizeof(dp_directions[0])*sizeof(dp_directions));
+  }
 }
 
 void loop()
 {
+  delay(1000);
   if(Serial2.available() > 0)
   {
     char data = Serial2.read();
     if(data == 'A')
     {
       Serial2.println("Command Recieved");
-      localize();
+//      localize();
+      block_picking = true;
     }
   }
 
@@ -149,7 +189,7 @@ void loop()
   if(localized)
   {
     int counter = 0;
-    char command = '';
+    char command = " ";
     while(true)
     {
       getSensorReadings(true);
@@ -161,17 +201,16 @@ void loop()
       }
 
       if(command == 'w')
-        moveForwardStraight();
+        moveStraightForward();
       else if(command == 'a')
         turnLeft();
       else if(command == 'd')
         turnRight();
-
-      if(counter == directions.length() - 1)
+      else if(command == 'e')
       {
-        spinLeft(turn_speed1, turn_speed2);
-        delay(500);
-        brake();
+        // turn 180 degrees
+        turnLeft();
+        turnLeft();
         localized = false;
         block_picking = true;
         break;
@@ -181,11 +220,55 @@ void loop()
 
   // block picking
   if(block_picking)
+  {
     pickUpBlock();
+    block_picking = false;
+    picked_up_block = true;
+  }
 
   // loading zone to drop off zone
+  if(picked_up_block)
+  {
+    int counter = 0;
+    char command = "";
+    while(true)
+    {
+      getSensorReadings(true);
+      
+      if(sonar_arr[0] < north_threshold or surrounding_changed)
+      {
+        command = drop_off_directions[counter];
+        counter++;
+        Serial2.println(command);
+      }
 
-  // drop off zone 
+      if(command == 'w')
+        moveStraightForward();
+      else if(command == 'a')
+        turnLeft();
+      else if(command == 'd')
+        turnRight();
+      else if(command == 's')
+      {
+        moveBackward(backward_speed1, backward_speed2);
+        delay(600);
+        brake();
+      }
+      else if(command == 'e')
+      {
+        picked_up_block = false;
+        dropping_block = true;
+        break;
+      }
+    }
+  }
+
+  // drop off zone
+  if(dropping_block)
+  {
+    dropOffBlock();
+    dropping_block = false;
+  }
   
 }
 
@@ -226,7 +309,7 @@ void getSensorReadings(bool average_the_readings)
   }
   printSensorReadings();
   evalSurrounding();
-  IR_Read(); // sticking IR sensor reading function here. TODO: Rearchitect the code
+//  IR_Read(); // sticking IR sensor reading function here. TODO: Rearchitect the code
 }
 
 void printSensorReadings()
@@ -446,32 +529,32 @@ void unloadBlock()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void moveStraightForward()
 {
-//  // have the robot adjust parallel to the walls
-//  if((sonar_arr[1] > 30 or sonar_arr[4] > 30) and quadrant_type == 2)
-//  {
-//    moveBackward(backward_speed1, backward_speed2);
-//    delay(200);
-//    brake();
-//    while(true)
-//    {
-//      Serial2.println("Robot adjusting parallel to the walls");
-//      if(sonar_arr[2] > sonar_arr[1] + 2 and sonar_arr[5] + 2 < sonar_arr[4])
-//      {
-//        spinLeft(turn_speed1, turn_speed2);
-//        delay(100);
-//        brake();
-//      }
-//      else if(sonar_arr[2] + 2 < sonar_arr[1] and sonar_arr[5] > sonar_arr[4] + 2)
-//      {
-//        spinRight(turn_speed1, turn_speed2);
-//        delay(100);
-//        brake();
-//      }
-//      else
-//        break;
-//    }
-//    quadrant_type = 5; // a hacky way to indicate the robot has already been adjusted
-//  }
+  // have the robot adjust parallel to the walls
+  if((sonar_arr[1] > 30 or sonar_arr[4] > 30) and quadrant_type == 2)
+  {
+    moveBackward(backward_speed1, backward_speed2);
+    delay(200);
+    brake();
+    while(true)
+    {
+      Serial2.println("Robot adjusting parallel to the walls");
+      if(sonar_arr[2] > sonar_arr[1] + 2 and sonar_arr[5] + 2 < sonar_arr[4])
+      {
+        spinLeft(turn_speed1, turn_speed2);
+        delay(100);
+        brake();
+      }
+      else if(sonar_arr[2] + 2 < sonar_arr[1] and sonar_arr[5] > sonar_arr[4] + 2)
+      {
+        spinRight(turn_speed1, turn_speed2);
+        delay(100);
+        brake();
+      }
+      else
+        break;
+    }
+    quadrant_type = 5; // a hacky way to indicate the robot has already been adjusted
+  }
   
   if(sonar_arr[1] <= 10 && sonar_arr[4] <= 10)
   {
@@ -553,7 +636,7 @@ void turnLeft()
 //  Serial2.println("Turning Completed");
 //  turning = false;
   spinLeft(255, 255);
-  delay(100);
+  delay(160);
   brake();
   
 }
@@ -600,7 +683,7 @@ void turnRight()
 //  }
 //  turning = false;
   spinRight(255, 255);
-  delay(100);
+  delay(240);
   brake();
 }
 
@@ -683,6 +766,148 @@ void localize()
   for(int i=0; i<paths.length(); i++)
     directions[i] = paths[i];
     
+}
+void pickUpBlock()
+{
+  //Detecting block while scanning
+  while(!blockFound)
+  {
+    southSensor = sonar_north.ping_cm();
+    delay(10);
+    blockSensor = blockSensorUS.ping_cm();
+    delay(10);
+    
+    Serial2.print("Block Sensor reading: ");
+    Serial2.println(blockSensor);
+    Serial2.print("South Sensor reading: ");
+    Serial2.println(southSensor);
+    Serial.print("Block Sensor reading: ");
+    Serial.println(blockSensor);
+    Serial.print("South Sensor reading: ");
+    Serial.println(southSensor);
+    
+    //these numbers can be played around with
+    if (blockSensor < 20 && southSensor > blockSensor+5 && blockSensor != 0)
+    {
+      Serial.println("Block has been found. Moving fwd ");
+      moveBackward(forward_speed1,forward_speed2);
+      // moveStraightBackward();
+      delay(100);
+      brake();
+      blockFound = true;
+      break;
+    }
+    Serial.println("Block has NOT been found. Moving fwd");
+    moveBackward(forward_speed1,forward_speed2);
+    //moveStraightBackward();
+    delay(200);
+    //Serial.println("Spinning");
+    //adjustRight(true);
+    //delay(500);
+  }
+  //printing distance for tuning of algo 
+  
+  do
+  { 
+    //change to condition where top sensor also showing a larger distance so we know that it is block and not something else 
+    southSensor = sonar_north.ping_cm();
+    delay(10);
+    blockSensor = blockSensorUS.ping_cm();
+    delay(10);
+
+    Serial2.println("Moving towards block for pickup");
+    moveBackward(forward_speed1,forward_speed2);
+    delay(200);
+    
+    if(blockSensor <= 3 && blockSensor != 0)
+    {
+        Serial2.println("Braking for pickup");
+        brake();
+        loadBlock();
+        blockPicked = true;
+        brake();
+        delay(100);
+        Serial2.println("Block has been picked up");
+        break;
+    }
+  }while (blockFound && !blockPicked);
+}
+
+void pickUpBlockScan()
+{
+  //Detecting block while scanning
+  while (!blockFound)
+  {
+    
+    southSensor = sonar_north.ping_cm();
+    delay(10);
+    blockSensor = blockSensorUS.ping_cm();
+    delay(10);
+    
+    Serial2.print("Block Sensor reading: ");
+    Serial2.println(blockSensor);
+    Serial2.print("South Sensor reading: ");
+    Serial2.println(southSensor);
+    
+    //these numbers can be played around with
+    if (blockSensor < 20 && southSensor > blockSensor+5 && blockSensor != 0)
+    {
+      Serial.println("Block has been found. Moving fwd ");
+      moveBackward(forward_speed1,forward_speed2);
+     // moveStraightBackward();
+      delay(100);
+      brake();
+      blockFound = true;
+      break;
+    }
+    Serial2.println("Block has NOT been found. Moving fwd and scanning");
+    moveBackward(forward_speed1,forward_speed2);
+    delay(200);
+    Serial2.println("Scanning");
+    spinLeft(turn_speed1,0);
+    delay(250);
+    spinRight(0, turn_speed1);
+    delay(400);
+  }
+  //printing distance for tuning of algo 
+  
+  do
+  { 
+      //change to condition where top sensor also showing a larger distance so we know that it is block and not something else 
+      
+      southSensor = sonar_north.ping_cm();
+      delay(10);
+      blockSensor = blockSensorUS.ping_cm();
+      delay(10);
+      
+      Serial2.println("Moving towards block for pickup");
+      moveBackward(forward_speed1,forward_speed2);
+      delay(200);
+      
+      if(blockSensor <= 3 && blockSensor != 0)
+      {
+          Serial2.println("Braking for pickup");
+          brake();
+          loadBlock();
+          blockPicked = true;
+          brake();
+          delay(100);
+          Serial2.println("Block has been picked up");
+          break;
+        }
+      moveBackward(forward_speed1,forward_speed2);
+      delay(200);
+      
+  }while (blockFound && !blockPicked);
+}
+void dropOffBlock()
+{
+  moveBackward(backward_speed1, backward_speed2);
+  delay(100);
+  brake();
+  
+  unloadBlock();
+  Serial2.println("MISSION ACCOMPLISHED!");
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////// TESTING MOTION FUNCTIONS ////////////////////////////////////////////
